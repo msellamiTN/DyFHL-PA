@@ -1,0 +1,26 @@
+\multicolumn{7}{l}{\textit{Agentic} (5 seeds)}\\
+RF, local features$^\dagger$ & 0.256\,{\scriptsize$\pm$0.061} & 0.254\,{\scriptsize$\pm$0.026} & 0.673\,{\scriptsize$\pm$0.106} & 0.599\,{\scriptsize$\pm$0.056} & 0.445\,{\scriptsize$\pm$0.056} & 0.543\,{\scriptsize$\pm$0.017}\\
+RF + count context$^\dagger$ & 0.274\,{\scriptsize$\pm$0.062} & 0.123\,{\scriptsize$\pm$0.014} & 0.976\,{\scriptsize$\pm$0.015} & 0.684\,{\scriptsize$\pm$0.045} & 0.515\,{\scriptsize$\pm$0.020} & 0.592\,{\scriptsize$\pm$0.013}\\
+Local-only & 0.156\,{\scriptsize$\pm$0.117} & 0.000\,{\scriptsize$\pm$0.000} & 0.223\,{\scriptsize$\pm$0.313} & 0.700\,{\scriptsize$\pm$0.011} & 0.270\,{\scriptsize$\pm$0.096} & 0.388\,{\scriptsize$\pm$0.018}\\
+FedGCN (clique exp.) & 0.094\,{\scriptsize$\pm$0.130} & 0.000\,{\scriptsize$\pm$0.000} & 0.200\,{\scriptsize$\pm$0.447} & 0.700\,{\scriptsize$\pm$0.011} & 0.249\,{\scriptsize$\pm$0.109} & 0.514\,{\scriptsize$\pm$0.020}\\
+FedHGNN (count completion) & 0.201\,{\scriptsize$\pm$0.157} & 0.000\,{\scriptsize$\pm$0.000} & \textbf{1.000}\,{\scriptsize$\pm$0.000} & 0.700\,{\scriptsize$\pm$0.011} & 0.475\,{\scriptsize$\pm$0.042} & 0.531\,{\scriptsize$\pm$0.011}\\
+\textbf{DyFHL-PA-L} (learned decoder) & \textbf{0.811}\,{\scriptsize$\pm$0.029} & 0.641\,{\scriptsize$\pm$0.069} & \textbf{1.000}\,{\scriptsize$\pm$0.000} & 0.851\,{\scriptsize$\pm$0.032} & 0.826\,{\scriptsize$\pm$0.025} & \textbf{0.887}\,{\scriptsize$\pm$0.022}\\
+\textbf{DyFHL-PA-R} (rule decoder) & 0.808\,{\scriptsize$\pm$0.028} & \textbf{0.800}\,{\scriptsize$\pm$0.038} & \textbf{1.000}\,{\scriptsize$\pm$0.000} & \textbf{0.853}\,{\scriptsize$\pm$0.030} & \textbf{0.865}\,{\scriptsize$\pm$0.023} & 0.807\,{\scriptsize$\pm$0.027}\\
+\midrule
+\multicolumn{7}{l}{\textit{XS-ABAC} (5 seeds)}\\
+RF, local features$^\dagger$ & 0.847\,{\scriptsize$\pm$0.025} & 0.559\,{\scriptsize$\pm$0.038} & 0.730\,{\scriptsize$\pm$0.143} & \textbf{0.703}\,{\scriptsize$\pm$0.017} & 0.710\,{\scriptsize$\pm$0.037} & 0.772\,{\scriptsize$\pm$0.020}\\
+RF + count context$^\dagger$ & 0.849\,{\scriptsize$\pm$0.017} & 0.556\,{\scriptsize$\pm$0.026} & 0.969\,{\scriptsize$\pm$0.015} & 0.699\,{\scriptsize$\pm$0.029} & \textbf{0.756}\,{\scriptsize$\pm$0.020} & 0.808\,{\scriptsize$\pm$0.021}\\
+Local-only & 0.811\,{\scriptsize$\pm$0.024} & 0.164\,{\scriptsize$\pm$0.224} & 0.037\,{\scriptsize$\pm$0.073} & 0.600\,{\scriptsize$\pm$0.031} & 0.425\,{\scriptsize$\pm$0.064} & 0.564\,{\scriptsize$\pm$0.059}\\
+FedGCN (clique exp.) & 0.853\,{\scriptsize$\pm$0.019} & 0.389\,{\scriptsize$\pm$0.243} & 0.201\,{\scriptsize$\pm$0.402} & 0.600\,{\scriptsize$\pm$0.031} & 0.535\,{\scriptsize$\pm$0.097} & 0.708\,{\scriptsize$\pm$0.090}\\
+FedHGNN (count completion) & 0.855\,{\scriptsize$\pm$0.018} & 0.520\,{\scriptsize$\pm$0.069} & 0.894\,{\scriptsize$\pm$0.123} & 0.600\,{\scriptsize$\pm$0.031} & 0.707\,{\scriptsize$\pm$0.030} & 0.735\,{\scriptsize$\pm$0.032}\\
+\textbf{DyFHL-PA-L} (learned decoder) & 0.929\,{\scriptsize$\pm$0.005} & \textbf{0.652}\,{\scriptsize$\pm$0.019} & 0.249\,{\scriptsize$\pm$0.499} & 0.643\,{\scriptsize$\pm$0.073} & 0.644\,{\scriptsize$\pm$0.108} & \textbf{0.849}\,{\scriptsize$\pm$0.029}\\
+\textbf{DyFHL-PA-R} (rule decoder) & \textbf{0.930}\,{\scriptsize$\pm$0.006} & 0.607\,{\scriptsize$\pm$0.023} & \textbf{0.999}\,{\scriptsize$\pm$0.001} & 0.480\,{\scriptsize$\pm$0.095} & 0.737\,{\scriptsize$\pm$0.046} & 0.711\,{\scriptsize$\pm$0.042}\\
+\midrule
+\multicolumn{7}{l}{\textit{AMZ-Access} (5 seeds)}\\
+RF, local features$^\dagger$ & 0.594\,{\scriptsize$\pm$0.031} & 0.206\,{\scriptsize$\pm$0.030} & 0.976\,{\scriptsize$\pm$0.009} & 0.648\,{\scriptsize$\pm$0.037} & 0.581\,{\scriptsize$\pm$0.057} & 0.630\,{\scriptsize$\pm$0.053}\\
+RF + count context$^\dagger$ & 0.582\,{\scriptsize$\pm$0.035} & 0.114\,{\scriptsize$\pm$0.031} & 0.988\,{\scriptsize$\pm$0.009} & 0.667\,{\scriptsize$\pm$0.045} & 0.560\,{\scriptsize$\pm$0.067} & 0.632\,{\scriptsize$\pm$0.048}\\
+Local-only & 0.422\,{\scriptsize$\pm$0.103} & 0.000\,{\scriptsize$\pm$0.000} & 0.000\,{\scriptsize$\pm$0.000} & 0.658\,{\scriptsize$\pm$0.044} & 0.292\,{\scriptsize$\pm$0.082} & 0.519\,{\scriptsize$\pm$0.031}\\
+FedGCN (clique exp.) & 0.631\,{\scriptsize$\pm$0.025} & 0.000\,{\scriptsize$\pm$0.000} & 0.000\,{\scriptsize$\pm$0.000} & 0.658\,{\scriptsize$\pm$0.044} & 0.345\,{\scriptsize$\pm$0.058} & 0.581\,{\scriptsize$\pm$0.057}\\
+FedHGNN (count completion) & 0.634\,{\scriptsize$\pm$0.020} & 0.000\,{\scriptsize$\pm$0.000} & \textbf{1.000}\,{\scriptsize$\pm$0.000} & 0.658\,{\scriptsize$\pm$0.044} & 0.546\,{\scriptsize$\pm$0.053} & 0.588\,{\scriptsize$\pm$0.047}\\
+\textbf{DyFHL-PA-L} (learned decoder) & 0.933\,{\scriptsize$\pm$0.014} & 0.372\,{\scriptsize$\pm$0.254} & 0.750\,{\scriptsize$\pm$0.500} & 0.766\,{\scriptsize$\pm$0.076} & 0.698\,{\scriptsize$\pm$0.095} & \textbf{0.903}\,{\scriptsize$\pm$0.030}\\
+\textbf{DyFHL-PA-R} (rule decoder) & \textbf{0.939}\,{\scriptsize$\pm$0.015} & \textbf{0.727}\,{\scriptsize$\pm$0.096} & \textbf{1.000}\,{\scriptsize$\pm$0.000} & \textbf{0.866}\,{\scriptsize$\pm$0.055} & \textbf{0.880}\,{\scriptsize$\pm$0.034} & 0.830\,{\scriptsize$\pm$0.042}\\

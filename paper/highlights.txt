@@ -1,0 +1,7 @@
+Highlights (max 85 characters each)
+
+- Rules as hyperedges make cross-domain policy anomalies structural relations
+- Domains exchange hashed vertex aggregates instead of pooling their policies
+- No missed conflict or redundancy without noise; false positives bounded in 1/B
+- Policy churn is absorbed by exact sparse delta updates of the shared context
+- Label-free federated training; fixed decoder matches or beats the learned one

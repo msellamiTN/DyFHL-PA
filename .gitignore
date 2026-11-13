@@ -1,0 +1,11 @@
+data/raw/
+__pycache__/
+*.pyc
+logs/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.spl
+.pytest_cache/
