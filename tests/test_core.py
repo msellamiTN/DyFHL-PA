@@ -78,3 +78,16 @@ def test_delta_equals_full_recompute():
     for o, n, u in zip(old, new, U):
         d, _ = delta_upload(o, n, m)
         assert torch.equal(u + d, n.upload(m)[0])
+
+
+def test_irrelevancy_rule_matches_definition():
+    """Proposition (irrelevancy): without noise the rule decoder reproduces the oracle exactly,
+    also on XS-ABAC, where rules can constrain several entity attributes."""
+    from dyfhl.policy import get_source
+    for name in ("agentic", "xu_stoller"):
+        w = World(get_source(name), seed=3, n_rules=150, n_queries=40)
+        cfg = Config(h=0, B=64)
+        clients, lab = make_clients(w, cfg)
+        R, Y, Q, gap = lab
+        _, (P, Pq) = evaluate(clients, DyFHL(clients[0].geo, cfg), lab, cfg, rule=True)
+        assert ((P[:, 2] > .5) == Y[:, 2]).all(), name

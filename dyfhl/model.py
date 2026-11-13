@@ -43,12 +43,22 @@ class Config:
         return (self.B if self.sketch else 1) + self.h
 
 
+def hash_bins(uid, B, salt=0):
+    """Salted pseudo-random hash of rule identifiers to bins (splitmix64 finaliser)."""
+    with np.errstate(over="ignore"):
+        x = (np.asarray(uid).astype(np.uint64) + np.uint64(0x9E3779B97F4A7C15) * np.uint64(salt + 1))
+        x = (x ^ (x >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+        x = (x ^ (x >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+        x = x ^ (x >> np.uint64(31))
+    return (x % np.uint64(B)).astype(np.int64)
+
+
 def signature(uid, cfg):
     n = len(uid)
     if not cfg.sketch:
         return torch.ones(n, 1)
     sig = torch.zeros(n, cfg.B)
-    b = (torch.as_tensor(uid, dtype=torch.int64) * 2654435761 % 4294967296) % cfg.B
+    b = torch.as_tensor(hash_bins(np.asarray(uid), cfg.B, cfg.seed))
     sig[torch.arange(n), b] = 1.0
     return sig
 
@@ -125,7 +135,21 @@ class DyFHL(nn.Module):
         return Us.view(G, 2, Hx.shape[1], -1).permute(0, 2, 1, 3)  # [G, V+A, 2, D]
 
     # -- decoding
-    def evidence(self, H, Wm, grp, C):
+    def extend(self, C):
+        """Context rows extended with per-attribute totals and a zero row (computed once per context)."""
+        V, A, G = self.geo.V, self.geo.A, C.shape[0]
+        tot = torch.einsum("av,gvcd->gacd", self.block, C[:, :V])
+        return torch.cat([C, tot, torch.zeros(G, 1, *C.shape[2:])], 1)
+
+    def prepare(self, C):
+        """Precompute the extended contexts used by forward(); pass the result as prep= when decoding in chunks."""
+        B = self.cfg.B if self.cfg.sketch else 1
+        prep = {"s": self.extend(C[..., :B])} if self.cfg.conj else {}
+        if self.cfg.h and self.cfg.conj:
+            prep["l"] = self.extend(C[..., B:] / (1 + C[..., :B].sum(-1, keepdim=True).clamp(min=0)))
+        return prep
+
+    def evidence(self, H, Wm, grp, C, Cx=None):
         """Per hyperedge pooled cross-domain evidence [n, 3, 2, D].
         Conjunctive mode: (min over attributes of the overlap evidence, min over attributes of the
         subsumption evidence, mean over attributes of the overlap evidence), where inside an attribute
@@ -139,9 +163,8 @@ class DyFHL(nn.Module):
             vals, pos = Ha.topk(2, dim=2)                             # value sets hold at most two values
             vid = geo.idx[torch.arange(A)[None, :, None], pos]        # [n, A, 2]
             has1, has2 = vals[..., 0] > 0, vals[..., 1] > 0
-            tot = torch.einsum("av,gvcd->gacd", self.block, C[:, :V])
-            zero = torch.zeros(G, 1, *C.shape[2:])
-            Cx = torch.cat([C, tot, zero], 1)                         # rows: values | wildcards | totals | zero
+            if Cx is None:
+                Cx = self.extend(C)                                   # rows: values | wildcards | totals | zero
             ar = torch.arange(A)[None, :].expand(n, A)
             i1 = torch.where(has1, vid[..., 0], V + A + ar)           # first value, or the attribute total
             i2 = torch.where(has2, vid[..., 1], torch.full_like(ar, V + 2 * A))
@@ -177,14 +200,15 @@ class DyFHL(nn.Module):
         return torch.cat([torch.asinh(top), torch.asinh(x.mean(-1, keepdim=True)),
                           torch.asinh(x.std(-1, keepdim=True))] + soft, -1)
 
-    def forward(self, H, Wm, eff, isq, grp, C, irr_feat, adj=None):
+    def forward(self, H, Wm, eff, isq, grp, C, irr_feat, adj=None, prep=None):
         cfg = self.cfg
         B = cfg.B if cfg.sketch else 1
+        prep = prep or {}
         with torch.no_grad():
-            evs = self.evidence(H, Wm, grp, C[..., :B])
+            evs = self.evidence(H, Wm, grp, C[..., :B], prep.get("s"))
         if cfg.h:   # learned channel: per-vertex mean embedding of the foreign rules, bounded after pooling
             Cl = C[..., B:] / (1 + C[..., :B].sum(-1, keepdim=True).clamp(min=0))
-            evs = torch.cat([evs, torch.tanh(self.evidence(H, Wm, grp, Cl) / 4)], -1)
+            evs = torch.cat([evs, torch.tanh(self.evidence(H, Wm, grp, Cl, prep.get("l")) / 4)], -1)
         ev = evs
         n = len(eff)
         e = torch.where(isq, torch.zeros_like(eff), eff)

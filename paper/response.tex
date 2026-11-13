@@ -1,0 +1,187 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{xr}
+\externaldocument{main}
+\input{generated/numbers}
+\newcommand{\name}{DyFHL-PA}
+\newcommand{\R}{\textsc{r}}
+\newcommand{\concern}[2]{\medskip\noindent\textbf{#1}\quad\emph{#2}\par\smallskip}
+\newcommand{\resp}{\noindent\textcolor{blue!55!black}{\textbf{Response.}}\ }
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\begin{center}
+{\Large\bfseries DyFHL-PA: pre-submission review and revision report}\\[4pt]
+Target journal: \emph{Computers \& Security} (Elsevier)\\
+Manuscript: ``DyFHL-PA: Dynamic Federated Hypergraph Learning for Cross-Domain Access Control Policy Anomaly Analysis in Agentic Distributed Environments''
+\end{center}
+
+\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small
+\textbf{Nature of this document.} Part~I contains three \emph{simulated} referee reports on version~1 of the manuscript, written from the perspective of experienced \emph{Computers \& Security} reviewers in access-control analysis, applied privacy, and federated learning. They are a pre-submission self-review, not reports from the journal. Part~II lists the changes made in response and answers every point. All section, figure, table, equation and proposition numbers in Part~II refer to the revised manuscript (version~2); all numbers are produced by the released scripts from the result files.}}
+
+\section*{Part I. Referee reports on version 1}
+
+\subsection*{Scores}
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+Dimension (scale) & R1 & R2 & R3 & Mean\\
+\midrule
+Overall (1--10) & 5 & 4 & 4 & 4.3\\
+Contribution (1--4) & 3 & 2 & 2 & 2.3\\
+Presentation (1--4) & 2 & 3 & 3 & 2.7\\
+Soundness (1--4) & 3 & 2 & 3 & 2.7\\
+Originality (1--4) & 3 & 3 & 2 & 2.7\\
+Quality (1--4) & 3 & 2 & 3 & 2.7\\
+Clarity (1--4) & 2 & 3 & 3 & 2.7\\
+Significance (1--4) & 3 & 2 & 2 & 2.3\\
+Confidence (1--5) & 5 & 5 & 4 & 4.7\\
+\midrule
+Recommendation & major rev. & major rev. & major rev. & \\
+\bottomrule
+\end{tabular}\\[3pt]
+Weighted score (Overall 1.0, Contribution 0.4, Presentation 0.2, others 0.1; each dimension normalised by its maximum): \textbf{5.4/10}. Consensus: \textbf{major revision}.
+\end{center}
+
+\subsection*{Meta-review}
+The reviewers agree that the problem, detecting anomalies between access-control policies of organisations that do not share them, is relevant to \emph{Computers \& Security}, and that the encoding of overlap and subsumption into a conjunctive, hash-based aggregate is a genuine idea with a clean correctness argument. They also agree on three blocking issues. First, the formal part is too terse to be checked: there is no worked example, the decoding equations are never illustrated, and the four anomaly types share one short proof. Second, the privacy claims are not quantified: the paper concedes that rules can be reconstructed but never measures how many. Third, the evaluation rests on generated benchmarks with injected anomalies and on re-implemented baselines, and R3 found that the hash used in the code is not a uniform hash, which may make the reported accuracy optimistic. The learning component is secondary to the method and the framing should say so.
+
+\subsection*{Reviewer 1 (access-control policy analysis; confidence 5/5)}
+\textbf{Summary.} The paper detects four kinds of anomaly between ABAC rules of different domains without pooling the rules. Rules become hyperedges with wildcard vertices; domains share per-vertex sums of hashed rule signatures; a decoder combines evidence by a minimum over attributes. One-sidedness and a $1/B$ false-positive bound are proved.
+
+\textbf{Strengths.} (S1) A real gap: existing analysers (decision diagrams, SMT, classifiers) assume one readable policy set. (S2) The wildcard-vertex encoding is simple and makes overlap local to vertices. (S3) The one-sided error is useful operationally. (S4) Code and scripts are released.
+
+\textbf{Weaknesses.}
+\begin{enumerate}[label=W1.\arabic*]
+\item The formal part cannot be followed without working it out by hand. There is no running example, no figure of a policy hypergraph, and Eqs.~(3)--(5) are not illustrated. Redundancy and gaps are dispatched in one sentence of the proof of Proposition~1.
+\item The policy language (conjunctions of set-membership conditions, at most two values) is far from XACML or real ABAC: hierarchies, ranges, negation and relational conditions are common.
+\item Intra-domain anomalies are delegated to an ``exact local analyser'' that is neither specified nor evaluated.
+\item All benchmarks are generated, and anomalies are injected at fixed rates. It is unclear whether the method works on anomalies that were not planted, and there is no concrete example of a finding.
+\item XACML combining algorithms resolve conflicts; a reported cross-domain conflict may be harmless.
+\item Cryptographic alternatives (private set intersection, MPC) are dismissed in one sentence without a cost argument.
+\item Figures use different fonts and sizes, several are drawn at a size where the lettering falls below 6~pt, and the architecture diagram uses a third style.
+\end{enumerate}
+\textbf{Questions.} How does a domain choose $B$? What does an auditor actually receive?
+
+\subsection*{Reviewer 2 (privacy and applied cryptography; confidence 5/5)}
+\textbf{Summary.} A protocol for cross-domain policy auditing that shares hashed aggregates instead of rules, with an analysis of what leaks.
+
+\textbf{Strengths.} (S1) The paper is candid that the scheme is not private in a formal sense. (S2) The negative result on differential privacy is useful.
+
+\textbf{Weaknesses.}
+\begin{enumerate}[label=W2.\arabic*]
+\item ``Data minimisation'' is not defined and leakage is not measured. A singleton bin reveals a rule completely; the reader needs the fraction of rules so revealed as a function of $B$, and the cost in accuracy of reducing it.
+\item The sensitivity $\sqrt{2A}$ holds only for value sets of at most two values; composition across repeated releases and deltas is not discussed.
+\item Only honest-but-curious members are considered. A member can poison the aggregate to fabricate or hide anomalies; this needs at least a discussion.
+\item The hash key and rule identifiers: if identifiers are predictable, a member can attribute bins to rules.
+\item The role of the server is unclear without secure aggregation.
+\end{enumerate}
+\textbf{Questions.} Can any $B$ give both useful accuracy and low exposure?
+
+\subsection*{Reviewer 3 (federated and graph learning; confidence 4/5)}
+\textbf{Summary.} A federated approach to policy anomaly detection; a fixed decoder and a learned decoder trained by FedAvg on a pseudo-domain task are compared with re-implemented baselines.
+
+\textbf{Strengths.} (S1) Honest reporting that the learned decoder does not beat the fixed one. (S2) Ablations isolate each structural element.
+
+\textbf{Weaknesses.}
+\begin{enumerate}[label=W3.\arabic*]
+\item The title and abstract promise ``federated hypergraph learning'', but learning is not what makes the method work.
+\item In the released code, bins are computed as $(\mathit{uid}\cdot2654435761 \bmod 2^{32}) \bmod B$. For $B$ a power of two this is a bijection on the low bits of sequential identifiers, so consecutive rules never collide. Collisions are then rarer than under the uniform hash assumed by Proposition~2, and the reported accuracy may be optimistic.
+\item Baselines are re-implementations of ideas, not the original systems; the strongest one receives audited labels.
+\item $B=512$ is not justified.
+\item Seeds vary data generation and training together; only five seeds; several $p$-values are close to 0.05.
+\item The learned decoder is trained for only 100 local steps per domain.
+\end{enumerate}
+
+\section*{Part II. Summary of changes}
+\begin{itemize}
+\item \textbf{New Section~\ref{sec:problem}}: running example (Table~\ref{tab:example}, Fig.~\ref{fig:exhg}); matching, overlap and subsumption proved as incidence conditions (Propositions~\ref{lem:match}--\ref{lem:sub}) with Example~\ref{ex:relations}; expressiveness result for hierarchies, ranges and negation (Proposition~\ref{prop:reduce}).
+\item \textbf{New Section~\ref{sec:types}}, one subsection per anomaly type, each with decision rule, propositions and proofs, an algorithm (Algorithms~\ref{alg:conflict}--\ref{alg:irr}), a worked example and a figure (Figs.~\ref{fig:exconf}--\ref{fig:exirr}); summary in Table~\ref{tab:guarantees}. Worked examples of the aggregate (Example~\ref{ex:agg}, Table~\ref{tab:UB}) and of a delta (Example~\ref{ex:delta}).
+\item \textbf{Privacy (Section~\ref{sec:privacy})}: exposure defined and predicted; choice of $B$ and the accuracy--exposure tension; general sensitivity and composition; deviating members.
+\item \textbf{New experiments}: exposure against $B$ and against accuracy (Fig.~\ref{fig:leakage}); naturally occurring anomalies without injection (Section~\ref{sec:natural}, Table~\ref{tab:natural}); a healthcare case study (Section~\ref{sec:case}, Table~\ref{tab:case}); sketch sizes up to 16384 on all three benchmarks.
+\item \textbf{All experiments re-run} with a keyed splitmix64 hash (W3.2).
+\item \textbf{All figures redrawn} to the Elsevier artwork specification: 140~mm (1.5-column) width, Arial-compatible lettering (Liberation Sans) embedded, text $\ge7$~pt and subscripts $\ge6$~pt at printed size, line weights 0.3--1.3~pt, colour-blind-safe palette; vector PDF and EPS plus 1000~dpi TIFF supplied.
+\item Abstract, introduction, discussion and conclusion rewritten to present the rule decoder as the method and learning as an option.
+\end{itemize}
+
+\section*{Part II. Responses}
+
+\subsection*{Reviewer 1}
+\concern{W1.1}{The formal part cannot be followed; no running example; equations not illustrated.}
+\resp We agree, and this is the largest change. Section~\ref{sec:example} introduces a running example from an agentic deployment: three units of one enterprise (Data Platform, Compliance, ML Engineering) share an analytics workspace with agents, humans and MCP tools; Table~\ref{tab:example} lists their six rules and two requests, and Fig.~\ref{fig:exhg} draws the hypergraph. Propositions~\ref{lem:match}, \ref{lem:overlap} and \ref{lem:sub} prove that matching, overlap and subsumption are incidence conditions, and Example~\ref{ex:relations} applies them to the example; Example~\ref{ex:labels} gives the pooled labels. Example~\ref{ex:agg} and Table~\ref{tab:UB} show the exact aggregate one domain uploads. Section~\ref{sec:types} then treats each anomaly type separately: x-conflict (Propositions~\ref{thm:conf-complete}--\ref{prop:fp}, Algorithm~\ref{alg:conflict}, Example~\ref{ex:conflict}, Fig.~\ref{fig:exconf}), x-redundancy (Proposition~\ref{thm:red}, Algorithm~\ref{alg:red}, Example~\ref{ex:red}, Fig.~\ref{fig:exred}), x-gap (Proposition~\ref{thm:gap}, Algorithm~\ref{alg:gap}, Example~\ref{ex:gap}, Fig.~\ref{fig:exgap}) and x-irrelevancy (Proposition~\ref{thm:irr}, Algorithm~\ref{alg:irr}, Example~\ref{ex:irr}, Fig.~\ref{fig:exirr}). Each figure shows the per-attribute evidence of Eqs.~\eqref{eq:ov}--\eqref{eq:sub} bin by bin and the conjunction of Eq.~\eqref{eq:conj}. Figs.~\ref{fig:exconf}d and \ref{fig:exred}d show a false alarm caused by a hash collision, the event bounded by Proposition~\ref{prop:fp}. We added an exactness result for collision-free bins (Proposition~\ref{thm:conf-exact} and parts (ii) of Propositions~\ref{thm:red} and \ref{thm:gap}). Every number in the examples is computed by the released code and checked against the pooled oracle (\texttt{scripts/running\_example.py}).
+
+\concern{W1.2}{The policy language is too restricted.}
+\resp Section~\ref{sec:express} shows that value hierarchies, ranges on ordered or numeric attributes, and negation reduce exactly to set membership over a finite partition of each attribute domain into atoms (Proposition~\ref{prop:reduce}, with a proof and an example), so all guarantees carry over at the cost of larger value sets. We state explicitly what is not covered: relational conditions between subject and resource attributes, and XACML combining algorithms and obligations.
+
+\concern{W1.3}{The local analyser is not specified.}
+\resp The local analyser is the exact pairwise test of Propositions~\ref{lem:overlap} and \ref{lem:sub} applied to a domain's own rules; it is the same code that computes the pooled oracle and the pseudo-labels of the learned decoder, and is released. Fig.~\ref{fig:arch} and Algorithm~\ref{alg:dyfhl} now show where it sits. Its correctness follows from the propositions, so we do not evaluate it separately.
+
+\concern{W1.4}{Generated benchmarks and injected anomalies; no concrete finding.}
+\resp Two additions. Section~\ref{sec:natural} repeats the evaluation with every injection rate set to zero (Table~\ref{tab:natural}). Recall of conflicts and redundancies remains 1; precision falls where natural prevalence is very low, as expected from a constant false-positive rate, and recovers with larger $B$: on Agentic macro-F1 is \natagenticBdxii{}, \natagenticBmmmmxcvi{} and \natagenticBsixteenk{} for $B=512$, 4096 and 16384. Section~\ref{sec:case} presents a healthcare scope built on the Xu--Stoller attribute data, with two concrete pairs of rules (Table~\ref{tab:case}): a cross-domain conflict about reading a patient's health record and a redundancy about adding notes, together with a false redundancy at $B=512$ that disappears at $B=4096$. We also state that anomalies are defined over the attribute space, and that the case study shows the kind of finding an auditor receives, not a measured incidence.
+
+\concern{W1.5}{Combining algorithms make some conflicts harmless.}
+\resp Section~\ref{sec:discussion} now discusses this. A combining algorithm decides which effect wins; it does not remove the disagreement. Across domains the algorithm is usually configured by none of the parties, so a cross-domain conflict means that at least one domain's intent is overridden without its knowledge. We therefore report conflicts as findings to review, not as errors.
+
+\concern{W1.6}{No cost argument against cryptographic alternatives.}
+\resp Section~\ref{sec:discussion} now compares costs. An exact private protocol must decide overlap or subsumption for every pair of rules of different domains, $O(n_d n_{d'})$ secure evaluations of an $A$-attribute conjunction per pair of domains, each needing interaction. \name uploads $\sum_r|e(r)|$ counts per domain, linear in the policy size, and needs no interaction beyond aggregation. The price is the exposure quantified in Fig.~\ref{fig:leakage}. We did not implement an MPC baseline and say so.
+
+\concern{W1.7}{Inconsistent and undersized figures.}
+\resp All figures have been redrawn with one style module (\texttt{dyfhl/figstyle.py}) to the Elsevier artwork specification: final width 140~mm (Figs.~\ref{fig:exhg}--\ref{fig:exirr}, \ref{fig:arch}, \ref{fig:sketch}--\ref{fig:stream}), Arial-compatible lettering embedded as TrueType, text of at least 7~pt and subscripts of at least 6~pt at printed size, line weights between 0.3 and 1.3~pt, RGB with a colour-blind-safe palette. The architecture diagram is now drawn in the same style. A checker script (\texttt{scripts/check\_figures.py}) verifies width, font embedding and family, minimum text size and line weights for every figure; vector PDF and EPS and 1000~dpi TIFF files are provided for production.
+
+\textbf{Questions.} \emph{Choosing $B$}: Section~\ref{sec:privacy} gives the condition $B\ge N^2/(2\delta)$ for a false-positive probability $\delta$, the opposite condition for low exposure, and why they conflict; Fig.~\ref{fig:leakage}b shows the measured trade-off. \emph{What an auditor receives}: for each own rule, the anomaly types flagged, with the guarantees of Table~\ref{tab:guarantees}; Section~\ref{sec:case} shows examples.
+
+\subsection*{Reviewer 2}
+\concern{W2.1}{Leakage is not measured.}
+\resp Section~\ref{sec:privacy} defines a rule as \emph{exposed} to a member when it is the only foreign rule of its effect in its bin, gives the exposure probability $(1-1/B)^{n-1}$ under a uniform hash, and notes the $k$-anonymity of bins with $k\ge2$ rules. Fig.~\ref{fig:leakage}a measures the exposed fraction on all benchmarks; it follows the prediction, at \lkallBlxiv\%, \lkallBdxii\% and \lkallBmmmmxcvi\% for $B=64$, 512 and 4096. Fig.~\ref{fig:leakage}b plots accuracy against exposure and answers the reviewer's question: no sketch size gives both high accuracy and low exposure. We now describe the guarantee as data minimisation (nothing outside shared scopes; a measured fraction inside them, never to the server under secure aggregation) and no longer suggest more. The abstract and conclusion say this.
+
+\concern{W2.2}{Sensitivity and composition.}
+\resp The sensitivity is now stated generally as $\sqrt{e_{\max}}$, with $e_{\max}=\max_r|e(r)|$ ($\le2A$ for value sets of at most two values). We added a paragraph on composition: with fresh noise per release, the noise accumulated in a context grows with the number of deltas, and every rule takes part in two releases. Section~\ref{sec:noise} still shows that the conjunctive decoder fails before useful $\varepsilon$ is reached.
+
+\concern{W2.3}{Malicious members.}
+\resp New paragraph ``Members that deviate'' (Section~\ref{sec:privacy}): inflated counts create spurious conflicts and redundancies and can hide gaps; negative counts can hide conflicts; secure aggregation with input validation (non-negative counts bounded by declared incidences) removes the second attack but not the first; liveness is accepted only from an entity's owner.
+
+\concern{W2.4}{Hash key and identifiers.}
+\resp Rule identifiers are random 64-bit nonces chosen by their owner and $h$ is keyed per scope (Section~\ref{sec:privacy}); the experiments use the keyed splitmix64 finaliser (see W3.2).
+
+\concern{W2.5}{Role of the server.}
+\resp The server only sums. With secure aggregation (Bonawitz et al., CCS 2017) it learns the sum over all members, and members learn the sum of the others; we state this in Sections~\ref{sec:agg} and \ref{sec:privacy}. The cost of secure aggregation for vectors of $S_d|\mathcal V|2B$ entries is that of the cited protocol; we did not measure it.
+
+\subsection*{Reviewer 3}
+\concern{W3.1}{Framing over-claims learning.}
+\resp We agree. The abstract, the contribution list and the discussion now present the conjunctive aggregation with the rule decoder as the method, and the federated learned decoder as an optional component that improves ranking (AUPRC) but not decisions. We kept the name \name{} for continuity with the project; the text no longer implies that learning is what makes the method work.
+
+\concern{W3.2}{The hash is not uniform; results may be optimistic.}
+\resp The reviewer is right, and we thank them for reading the code. With sequential identifiers and $B$ a power of two, the multiplicative hash spread consecutive rules over distinct bins. We replaced it with the splitmix64 finaliser keyed per run and re-ran every experiment. The effect was as the reviewer expected: on Agentic at $B=512$ (three seeds), the share of exposed rules was 74\% with the old hash and is \lkagenticBdxii\% with the new one, which matches the uniform-hash prediction (Fig.~\ref{fig:leakage}a). Accuracy at $B=512$ changed from 0.865, 0.737 and 0.880 (v1, \name-\R{} on Agentic, XS-ABAC and AMZ-Access) to \mainagenticR, \mainxustollerR{} and \mainamazonR. All numbers in the revised manuscript come from the re-run.
+
+\concern{W3.3}{Re-implemented baselines.}
+\resp FedHGL targets node classification with feature completion under local differential privacy; it has no notion of rule semantics, so its original code cannot be applied unchanged. Our re-implementation keeps its exchange (per-vertex counts and learned embeddings, pooled over the hyperedge) and gives it the same label-free training and the same heads as \name-L, so the comparison isolates the aggregation. The random forests receive 20\% of the oracle labels, information that no non-pooling method has; they serve as a strong learner rather than a realistic competitor. Section~\ref{sec:discussion} lists the re-implementation as a threat to validity.
+
+\concern{W3.4}{Choice of $B$.}
+\resp Section~\ref{sec:privacy} now gives a rule for $B$ and explains its limits; the sketch study extends to $B=16384$ on all three benchmarks (Fig.~\ref{fig:sketch}), and Table~\ref{tab:guarantees} states the error of each decision as a function of $B$. $B=512$ is kept for the main comparison as a middle setting and is labelled as such, and a row with $B=4096$ is added to Table~\ref{tab:main}. We also tested the natural alternative of several independent sketches of $B/k$ bins, combined so that every guarantee is kept; at the same total size it does not help (Section~\ref{sec:discussion}, paragraph ``Several hash functions do not help'').
+
+\concern{W3.5}{Statistics.}
+\resp Each seed draws a new world (rules, scopes, hash salt) and a new training run, so the standard deviations include both sources of variation, which is the variation a user would see. The main comparison uses five seeds and paired $t$-tests; we no longer rest any conclusion on a difference whose $p$-value is above 0.05, and we report effect sizes as mean differences.
+
+\concern{W3.6}{Short training of the learned decoder.}
+\resp This is listed as a threat to validity in Section~\ref{sec:discussion}. The learning ablation (Table~\ref{tab:abl_l}) shows that the components that matter (pseudo-anomaly augmentation, averaging) behave as expected at this budget; we did not tune the budget further because the rule decoder, which needs no training, is better at decisions in every setting we tested.
+
+\section*{Part III. Concerns that the revision does not remove}
+A second reading of version~2 by the same three perspectives leaves the following points open. We state them so that the submission does not overclaim.
+\begin{enumerate}
+\item \textbf{Exposure is intrinsic.} At the sketch sizes where the decoder is accurate, most shared-scope rules can be reconstructed by the other members of the scope (\lkallBmmmmxcvi\% at $B=4096$). The paper says so in the abstract, Section~\ref{sec:privacy} and Fig.~\ref{fig:leakage}. A reviewer who requires secrecy among members will still reject the protocol; the answer is the MPC variant named as future work.
+\item \textbf{The densest benchmark needs large sketches.} On XS-ABAC at $B=512$ the rule decoder is significantly below an audited random forest ($\mainxustollergain$, $p=\mainxustollerp$); it is ahead only from $B=4096$.
+\item \textbf{No real multi-domain policy corpus.} The case study and the derived benchmarks use real attribute data with generated rules and imposed domain structure.
+\item \textbf{No cryptographic baseline.} The cost comparison with exact private protocols is analytic.
+\item \textbf{The name.} ``Federated hypergraph learning'' remains in the title although the learned decoder is optional; an editor may ask for a title that matches the method.
+\end{enumerate}
+
+\end{document}

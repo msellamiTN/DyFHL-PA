@@ -3,7 +3,8 @@
 \usepackage{lmodern}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb,amsthm}
-\usepackage{booktabs,multirow}
+\usepackage{booktabs,multirow,tabularx}
+\usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
@@ -24,7 +25,7 @@
 \newcommand{\eff}{\mathrm{eff}}
 \newcommand{\scp}{\mathrm{sc}}
 
-\journal{Future Generation Computer Systems}
+\journal{Computers \& Security}
 
 \begin{document}
 \begin{frontmatter}
@@ -36,12 +37,12 @@
 \address[riadi]{RIADI Laboratory, National School of Computer Science (ENSI), University of Manouba, Manouba, Tunisia}
 
 \begin{abstract}
-Access control policies in distributed systems are written independently by the organisations that own the resources, yet they are evaluated together whenever AI agents, Model Context Protocol servers, tools, applications, legacy systems and human users collaborate. A rule that is consistent inside its own domain can contradict, duplicate or leave uncovered what another domain decided, and no domain can see this because policies are confidential. We present \name, an approach that detects four kinds of cross-domain anomaly (conflict, redundancy, irrelevancy and coverage gaps) without pooling policies, while intra-domain anomalies are handled exactly and locally. Each rule is a hyperedge over attribute-value vertices and per-attribute wildcard vertices. Domains exchange only vertex-level sums of hashed hyperedge signatures, partitioned by collaboration scope and effect; a decoder that is disjunctive inside an attribute and conjunctive across attributes recovers the anomalies. We prove that, without noise, the decoder misses no conflict or redundancy, that its false-positive rate is bounded by $N(N-1)/(2B)$ for $B$ sketch bins, and that policy churn is absorbed by exact sparse deltas. A decoder trained by federated averaging on a label-free task, in which every domain splits its own rules into two pseudo-domains, is compared with a fixed threshold rule. On a synthetic agentic benchmark and on policies derived from the Xu--Stoller case studies and the Amazon access data, the rule decoder reaches macro-F1 of \mainagenticR, \mainxustollerR{} and \mainamazonR{} with 512 bins, and \skagenticruleBmmmmxcvi, \skxustollerruleBmmmmxcvi{} and \skamazonruleBmmmmxcvi{} with 4096. The best baseline that does not pool policies, a random forest given 20\% audited labels, reaches \mainagenticbest, \mainxustollerbest{} and \mainamazonbest; federated count-completion and clique-expansion models are lower. The learned decoder ranks findings better (higher AUPRC) but does not decide better than the fixed rule. Accuracy is governed by the sketch size and falls quickly under additive noise, so differential privacy at small $\varepsilon$ is not attainable with this design; we state this limit and the residual leakage explicitly.
+Access-control policies are written by the organisations that own resources, yet are evaluated together when agents, MCP servers, tools, applications and people of several organisations collaborate. A rule that is consistent inside its own domain can contradict, duplicate or leave uncovered what another domain decided, and no domain can see this because policies are confidential. We present \name, which detects four cross-domain anomalies (conflict, redundancy, coverage gaps and irrelevancy) without pooling policies. Rules are hyperedges over attribute-value and wildcard vertices, on which matching, overlap and subsumption become incidence conditions. Domains exchange only per-vertex sums of hashed rule signatures, and a decoder that is disjunctive within an attribute and conjunctive across attributes recovers them. For each anomaly type we give a decision rule, an algorithm, an example and proofs: no conflict or redundancy is missed, reported gaps are real, false alarms occur with probability at most $N(N-1)/(2B)$ for $B$ hash bins, and policy changes are absorbed by exact sparse updates. On a synthetic agentic benchmark and policies derived from two public datasets, the decoder reaches macro-F1 of \mainagenticR, \mainxustollerR{} and \mainamazonR{} with 512 bins and \skagenticruleBmmmmxcvi, \skxustollerruleBmmmmxcvi{} and \skamazonruleBmmmmxcvi{} with 4096, against \mainagenticbest, \mainxustollerbest{} and \mainamazonbest{} for the best non-pooling baseline. We also measure what the exchange reveals: with 512 bins, \lkallBdxii\% of the rules in a shared scope can be reconstructed by the other members of that scope, and no bin count gives both high accuracy and low exposure. \name therefore minimises disclosure rather than guaranteeing secrecy.
 \end{abstract}
 
 
 \begin{keyword}
-access control \sep attribute-based access control \sep policy anomaly detection \sep hypergraph learning \sep federated learning \sep multi-agent systems
+access control \sep attribute-based access control \sep policy anomaly detection \sep privacy-preserving auditing \sep hypergraphs \sep federated learning \sep agentic AI
 \end{keyword}
 \end{frontmatter}
 
@@ -65,13 +66,13 @@ Third, the information needed to decide a cross-domain relation is additive over
 
 \paragraph{Contributions}
 \begin{enumerate}
-\item A hypergraph model of multi-domain attribute-based policies with per-attribute \emph{wildcard vertices}, in which four cross-domain anomaly types are defined as relations between hyperedges (Section~\ref{sec:problem}).
-\item \name, a protocol in which domains exchange scope- and effect-partitioned vertex aggregates of hashed hyperedge signatures, and a decoder that is disjunctive within an attribute and conjunctive across attributes (Section~\ref{sec:method}). We prove one-sided error without noise, a false-positive bound in $1/B$, and exactness of delta maintenance under churn.
-\item A label-free federated training scheme for a learned decoder, based on pseudo-domains built from each domain's own rules, and an honest comparison with a fixed threshold decoder (Sections~\ref{sec:learn} and \ref{sec:results}).
-\item An evaluation on a synthetic agentic benchmark and on policies derived from two public sources, with six baselines, structural and learning ablations, and studies of sketch size, noise, scale and churn; code, a Colab notebook and an interactive explorer are released (Section~\ref{sec:setup}).
+\item A hypergraph model of multi-domain attribute-based policies with per-attribute \emph{wildcard vertices}, in which matching, overlap and subsumption are incidence conditions (Propositions~\ref{lem:match}--\ref{lem:sub}) and four cross-domain anomaly types are relations between hyperedges. Hierarchies, ranges and negation reduce exactly to this model (Proposition~\ref{prop:reduce}). A running example from an agentic deployment is used throughout (Section~\ref{sec:problem}).
+\item \name, a protocol in which domains exchange scope- and effect-partitioned vertex aggregates of hashed hyperedge signatures, decoded by a rule that is disjunctive within an attribute and conjunctive across attributes (Section~\ref{sec:method}). For each anomaly type we give the decision rule, proofs of one-sided error, of exactness without collisions and of a false-positive bound in $1/B$, an algorithm, and a worked example with a figure (Section~\ref{sec:types}). Policy churn is absorbed by exact sparse deltas (Section~\ref{sec:delta}).
+\item An analysis and a measurement of what the exchange reveals: the share of rules that other members can reconstruct, as a function of $B$, and its trade-off against accuracy (Sections~\ref{sec:privacy} and \ref{sec:sketch}).
+\item An evaluation on a synthetic agentic benchmark and on policies derived from two public sources, with six baselines, structural and learning ablations, studies of sketch size, noise, scale and churn, naturally occurring anomalies, and a healthcare case study. An optional decoder trained by federated averaging on a label-free pseudo-domain task is compared with the fixed rule. Code, a Colab notebook and an interactive explorer are released (Sections~\ref{sec:setup} and \ref{sec:results}).
 \end{enumerate}
 
-We report two negative results because they bear on how such systems should be built. The learned decoder does not beat the fixed rule at a fixed threshold, and a learned message channel added to the signatures does not help. And the accuracy of the approach degrades fast under additive noise, which rules out differential privacy with small $\varepsilon$; privacy here means data minimisation, not secrecy, and Section~\ref{sec:privacy} states what leaks.
+We report three negative results because they bear on how such systems should be built. The learned decoder does not beat the fixed rule at decisions, and a learned message channel added to the signatures does not help. The accuracy of the approach degrades fast under additive noise, which rules out differential privacy with small $\varepsilon$. And no sketch size gives both high accuracy and low exposure: inside a shared scope, \name minimises what is disclosed but does not keep rules secret from the other members.
 
 %% ============================================================================
 \section{Background and related work}
@@ -116,23 +117,101 @@ FedHGL~\cite{luo2024fedhgl} & none (node classification) & n/a & yes & -- \\
 \end{table}
 
 %% ============================================================================
-\section{Problem formulation}
+\section{Policies as hypergraphs}
 \label{sec:problem}
 
-\subsection{Policies, domains and scopes}
-Let $\mathcal{A}=\{a_1,\dots,a_A\}$ be the attributes (of subjects, resources, actions and environment) and $D_a$ the finite value set of attribute $a$. A \emph{request} $q$ assigns one value $q_a\in D_a$ to every attribute. A \emph{rule} $r$ is a triple $(\mathrm{cond}(r),\eff(r),\scp(r))$: $\mathrm{cond}(r)$ maps each attribute either to a non-empty set $r_a\subseteq D_a$ or to the wildcard $\ast$; $\eff(r)\in\{\textsf{permit},\textsf{deny}\}$; and $\scp(r)$ is a collaboration scope. Rule $r$ \emph{matches} $q$, written $r\models q$, iff for every $a$, $r_a=\ast$ or $q_a\in r_a$.
+This section fixes the policy model, introduces the running example used throughout the paper, and shows that the three relations on which anomaly analysis rests (matching, overlap and subsumption) are incidence conditions on a hypergraph.
 
-There are $K$ \emph{domains}. Domain $d$ owns a rule set $P_d$ that only $d$ can read. A \emph{collaboration scope} $s$ is a shared context (a workspace, a joint project, a tool federation) with a member set $M_s$ of at least two domains; rules of different members written for $s$ are evaluated together. Some attributes denote \emph{entities} (an agent, a tool, an MCP server); each entity value $v$ has an owner domain $\mathrm{own}(v)$ and a liveness flag $\mathrm{alive}(v)$ known to the owner, which changes as entities are created and decommissioned.
+\subsection{Policies, domains and scopes}
+Let $\mathcal{A}=\{a_1,\dots,a_A\}$ be the attributes (of subjects, resources, actions and environment) and $D_a$ the finite value set of attribute $a$. A \emph{request} $q$ assigns one value $q_a\in D_a$ to every attribute. A \emph{rule} $r$ is a triple $(\mathrm{cond}(r),\eff(r),\scp(r))$: $\mathrm{cond}(r)$ maps each attribute either to a set $r_a$ or to the wildcard $\ast$; $\eff(r)\in\{\textsf{permit},\textsf{deny}\}$; and $\scp(r)$ is a collaboration scope. We assume the \emph{normal form} $\emptyset\neq r_a\subsetneq D_a$: a condition that admits every value is written $\ast$. Rule $r$ \emph{matches} $q$, written $r\models q$, iff for every $a$, $r_a=\ast$ or $q_a\in r_a$.
+
+There are $K$ \emph{domains}. Domain $d$ owns a rule set $P_d$ that only $d$ can read. A \emph{collaboration scope} $s$ is a shared context (a workspace, a joint project, a tool federation) with a member set $M_s$ of at least two domains; rules of different members written for $s$ are evaluated together. Some attributes denote \emph{entities} (an agent, a tool, an MCP server); each entity value $v$ has an owner domain $\mathrm{own}(v)$ and a liveness flag $\mathrm{alive}(v)\in\{0,1\}$ known to the owner, which changes as entities are created and decommissioned.
+
+\subsection{Running example}
+\label{sec:example}
+Three organisational units of an enterprise share an \emph{analytics workspace} in which AI agents, human analysts and tools exposed by MCP servers act on datasets, models and APIs: the Data Platform team (domain $A$), Compliance (domain $B$) and ML Engineering (domain $C$). There are five attributes: \textit{type} of the subject (agent, human, tool), \textit{res}ource type (dataset, model, api), \textit{sens}itivity (low, high), \textit{act}ion (read, export, invoke, delete) and \textit{tool} identity ($t_1$, $t_7$, $t_9$). Tools $t_1$ and $t_7$ are registered by $A$, $t_9$ by $C$; $t_7$ has been decommissioned. Table~\ref{tab:example} lists the six rules the three teams wrote for the workspace and two requests addressed to $A$. Each team sees only its own two rules.
+
+\begin{table}[t]
+\caption{Running example: rules of three domains in the scope \emph{analytics workspace}, and two requests received by domain $A$. An attribute that is not listed is a wildcard.}
+\label{tab:example}
+\centering\footnotesize
+\begin{tabularx}{\linewidth}{@{}lllX@{}}
+\toprule
+& Domain & Effect & Conditions\\
+\midrule
+$r_1$ & $A$ Data Platform & permit & \textit{type}$\in\{$agent$\}$, \textit{res}$\in\{$dataset$\}$, \textit{act}$\in\{$read$\}$\\
+$r_2$ & $A$ Data Platform & deny & \textit{type}$\in\{$human$\}$, \textit{res}$\in\{$model$\}$, \textit{act}$\in\{$delete$\}$\\
+$r_3$ & $B$ Compliance & deny & \textit{sens}$\in\{$high$\}$, \textit{act}$\in\{$read, export$\}$\\
+$r_4$ & $B$ Compliance & permit & \textit{type}$\in\{$agent, human$\}$, \textit{res}$\in\{$dataset$\}$\\
+$r_5$ & $C$ ML Engineering & permit & \textit{type}$\in\{$agent$\}$, \textit{res}$\in\{$model$\}$, \textit{act}$\in\{$invoke$\}$, \textit{tool}$\in\{t_7\}$\\
+$r_6$ & $C$ ML Engineering & permit & \textit{type}$\in\{$human$\}$, \textit{res}$\in\{$api$\}$, \textit{sens}$\in\{$low$\}$\\
+\midrule
+$q_1$ & to $A$ & & \textit{type}=tool, \textit{res}=api, \textit{sens}=low, \textit{act}=delete, \textit{tool}=$t_1$\\
+$q_2$ & to $A$ & & \textit{type}=human, \textit{res}=api, \textit{sens}=low, \textit{act}=read, \textit{tool}=$t_1$\\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \subsection{Policy hypergraph}
 \begin{definition}[Policy hypergraph]
-The vertex set is $\mathcal{V}=\{(a,v): a\in\mathcal{A}, v\in D_a\}\cup\{(a,\ast):a\in\mathcal{A}\}$: one vertex per attribute value and one \emph{wildcard vertex} per attribute. Rule $r$ is the hyperedge $e(r)=\{(a,v): v\in r_a\}\cup\{(a,\ast): r_a=\ast\}$, labelled with $\eff(r)$, $\scp(r)$ and its domain.
+\label{def:hg}
+The vertex set is $\mathcal{V}=\bigcup_{a}\mathcal{V}_a$ with $\mathcal{V}_a=\{(a,v): v\in D_a\}\cup\{(a,\ast)\}$: one vertex per attribute value and one \emph{wildcard vertex} per attribute. Rule $r$ is the hyperedge
+\[ e(r)=\{(a,v): r_a\neq\ast,\ v\in r_a\}\ \cup\ \{(a,\ast): r_a=\ast\}, \]
+labelled with $\eff(r)$, $\scp(r)$ and its domain. A request $q$ is the \emph{query hyperedge} $e(q)=\{(a,q_a): a\in\mathcal{A}\}$.
 \end{definition}
-Every hyperedge touches every attribute, either through value vertices or through the wildcard vertex. This makes the two relations below local to shared vertices.
+Every hyperedge meets every block $\mathcal{V}_a$, either in value vertices or in the wildcard vertex. Fig.~\ref{fig:exhg} draws the hypergraph of the running example with one column per attribute: $e(r_1)=\{$(\textit{type}, agent), (\textit{res}, dataset), (\textit{sens},$\ast$), (\textit{act}, read), (\textit{tool},$\ast$)$\}$ has five vertices, and $e(r_3)=\{$(\textit{type},$\ast$), (\textit{res},$\ast$), (\textit{sens}, high), (\textit{act}, read), (\textit{act}, export), (\textit{tool},$\ast$)$\}$ has six.
 
-\begin{definition}[Overlap and subsumption]
-Rules $r,r'$ \emph{overlap} iff some request is matched by both: for all $a$, $r_a=\ast$ or $r'_a=\ast$ or $r_a\cap r'_a\neq\emptyset$. Rule $r$ is \emph{subsumed} by $r'$, $r\sqsubseteq r'$, iff every request matched by $r$ is matched by $r'$: for all $a$, $r'_a=\ast$, or $r_a\neq\ast$ and $r_a\subseteq r'_a$.
-\end{definition}
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/ex_hypergraph}
+\caption{Policy hypergraph of the running example. Columns are attributes; circles are value vertices and squares wildcard vertices. A hyperedge is drawn as a path that visits its vertices in every column (branching where a rule lists two values). Dotted paths are the requests $q_1$ and $q_2$.}
+\label{fig:exhg}
+\end{figure}
+
+The three semantic relations of policy analysis become incidence conditions.
+
+\begin{proposition}[Matching]
+\label{lem:match}
+$r\models q$ iff for every attribute $a$, $(a,q_a)\in e(r)$ or $(a,\ast)\in e(r)$.
+\end{proposition}
+\begin{proof}
+By Definition~\ref{def:hg}, $(a,\ast)\in e(r)$ iff $r_a=\ast$, and $(a,q_a)\in e(r)$ iff $r_a\neq\ast$ and $q_a\in r_a$. The claim is the definition of matching.
+\end{proof}
+
+\begin{proposition}[Overlap]
+\label{lem:overlap}
+Call $r$ and $r'$ \emph{compatible on $a$} iff $(a,\ast)\in e(r)\cup e(r')$ or $e(r)\cap e(r')\cap\mathcal{V}_a\neq\emptyset$. Some request is matched by both $r$ and $r'$ iff they are compatible on every attribute. In that case we say that $r$ and $r'$ \emph{overlap}.
+\end{proposition}
+\begin{proof}
+($\Rightarrow$) Let $r\models q$ and $r'\models q$ and fix $a$. If neither rule is a wildcard on $a$, then $q_a\in r_a\cap r'_a$, so $(a,q_a)\in e(r)\cap e(r')$. ($\Leftarrow$) Build $q$ attribute by attribute: if both hyperedges share a value vertex $(a,v)$, set $q_a=v$; otherwise one of them is a wildcard on $a$, and we take $q_a$ from the value set of the other (any value if both are wildcards). By Proposition~\ref{lem:match} both rules match $q$.
+\end{proof}
+
+\begin{proposition}[Subsumption]
+\label{lem:sub}
+Call $r$ \emph{contained in $r'$ on $a$} iff $(a,\ast)\in e(r')$, or $(a,\ast)\notin e(r)$ and $e(r)\cap\mathcal{V}_a\subseteq e(r')$. Every request matched by $r$ is matched by $r'$ iff $r$ is contained in $r'$ on every attribute. We then write $r\sqsubseteq r'$.
+\end{proposition}
+\begin{proof}
+($\Leftarrow$) Let $r\models q$ and fix $a$. If $r'_a=\ast$ there is nothing to show; otherwise $r_a\neq\ast$, so $q_a\in r_a\subseteq r'_a$. ($\Rightarrow$) Suppose containment fails on $a$: $r'_a\neq\ast$ and either $r_a=\ast$ or some $v\in r_a\setminus r'_a$ exists. In the first case normal form gives a value $v\in D_a\setminus r'_a$. Let $q_a=v$ and, for $b\neq a$, let $q_b$ be any element of $r_b$ (any value if $r_b=\ast$). Then $r\models q$ and $r'\not\models q$.
+\end{proof}
+
+\begin{example}
+\label{ex:relations}
+In Fig.~\ref{fig:exhg}, $r_1$ and $r_3$ are compatible on every attribute: they share the vertex (\textit{act}, read), and on each of the other four attributes at least one of them sits on the wildcard vertex. They overlap; a witness built as in the proof is $q=$(agent, dataset, high, read, $t_1$). Rules $r_1$ and $r_6$ do not overlap: on \textit{type} their value vertices agent and human differ and neither is a wildcard. Rule $r_1$ is contained in $r_4$ on \textit{type} ($\{\text{agent}\}\subseteq\{\text{agent},\text{human}\}$), on \textit{res} (same vertex) and on the three remaining attributes because $r_4$ is a wildcard there; hence $r_1\sqsubseteq r_4$. The converse fails on \textit{type}. Request $q_2$ is matched by $r_6$: its vertices human, api and low are in $e(r_6)$, and $r_6$ is a wildcard on \textit{act} and \textit{tool}.
+\end{example}
+
+\subsection{Expressiveness: hierarchies, ranges and negation}
+\label{sec:express}
+Set-membership conditions cover more of practical ABAC than it may seem, because value hierarchies, ranges and negations reduce to them.
+\begin{proposition}[Reduction to set membership]
+\label{prop:reduce}
+Let the domain of attribute $a$ be partitioned into finitely many \emph{atoms} $\Pi_a$, and let every condition on $a$ be a union of atoms. Replace $D_a$ by $\Pi_a$, each request value by the atom containing it, and each condition by the set of atoms it contains. Matching, overlap and subsumption are preserved, and so are the labels of Definition~\ref{def:anom} and every guarantee of Section~\ref{sec:types}.
+\end{proposition}
+\begin{proof}
+A value $x$ lies in exactly one atom $\pi(x)$, and a union of atoms $c$ contains $x$ iff $\pi(x)\subseteq c$, i.e.\ iff $\pi(x)$ is one of the atoms of $c$: matching is preserved. The intersection of two unions of atoms is a union of atoms, so it is non-empty iff the two conditions share an atom: overlap is preserved. $c\subseteq c'$ iff every atom of $c$ is an atom of $c'$: subsumption is preserved. Definition~\ref{def:anom} and the propositions of Section~\ref{sec:types} use these relations only.
+\end{proof}
+\begin{example}
+A hierarchy \emph{Hospital}$\,\supset\,$\{\emph{Oncology}, \emph{Cardiology}\} uses the leaves as atoms: a condition on \emph{Hospital} becomes \{Oncology, Cardiology\}, which is the wildcard if these are the only departments. An ordered attribute \textit{clearance} with levels 1--4 and a condition $\textit{clearance}\ge3$ becomes \{3, 4\}; a numeric attribute such as time of day uses as atoms the intervals between all thresholds that appear in the policies. A negation $\textit{res}\neq\text{api}$ becomes \{dataset, model\}.
+\end{example}
+The price is that a condition may list more values, which increases $|e(r)|$, the upload, and the sensitivity of Section~\ref{sec:privacy}. Two features are not covered: relational conditions that compare attributes of the subject and the resource (\textit{subject.team} $=$ \textit{resource.team}), and the rule-combining algorithms and obligations of XACML~\cite{oasis2013xacml}, which decide the effective outcome of a conflict but not its existence (Section~\ref{sec:discussion}).
 
 \subsection{Cross-domain anomalies}
 \begin{definition}[Cross-domain anomalies]
@@ -142,45 +221,28 @@ Let $r\in P_d$ with scope $s$, and let $F(r)=\{r'\in P_{d'}: d'\in M_s\setminus\
 \item \emph{x-conflict}: some $r'\in F(r)$ overlaps $r$ and $\eff(r')\neq\eff(r)$.
 \item \emph{x-redundancy}: some $r'\in F(r)$ has $\eff(r')=\eff(r)$ and $r\sqsubseteq r'$.
 \item \emph{x-irrelevancy}: for some entity attribute $a$ with $r_a\neq\ast$, no $v\in r_a$ is alive and at least one is owned by another domain.
-\item \emph{x-gap} (incompleteness), defined for a request $q$ addressed to $d$ in scope $s$ that no rule of $P_d$ in $s$ matches: no foreign rule of the scope matches $q$ either.
+\item \emph{x-gap} (incompleteness), defined for a request $q$ addressed to $d$ in scope $s$ that no rule of $P_d$ in $s$ matches: no rule of $F(q)$ matches $q$ either, where $F(q)$ is defined like $F(r)$.
 \end{itemize}
 \end{definition}
-The first three are properties of a hyperedge, the fourth of a query hyperedge $\{(a,q_a)\}$. Their intra-domain counterparts (replace $F(r)$ by $d$'s own rules) are decidable by $d$ alone and exactly; \name delegates them to a local analyser and addresses only Definition~\ref{def:anom}.
+The intra-domain counterparts (replace $F(r)$ by $d$'s own rules) are decidable by $d$ alone and exactly; \name delegates them to a local analyser and addresses only Definition~\ref{def:anom}.
 
 \begin{example}
-Domain $A$ (data platform) has, in scope \emph{analytics}, the rule $r_1$: \textsf{permit} if \textit{subj\_type}$\in\{\text{agent}\}$, \textit{res\_type}$\in\{\text{dataset}\}$, \textit{action}$\in\{\text{read}\}$. Domain $B$ (compliance) has $r_2$: \textsf{deny} if \textit{sensitivity}$\in\{\text{high}\}$, \textit{action}$\in\{\text{read},\text{export}\}$. On \textit{action} they share the vertex \emph{read}; on every other attribute one of them is on the wildcard vertex. They overlap with different effects: an agent reading a highly sensitive dataset is permitted by $A$ and denied by $B$. Neither domain can see this x-conflict.
+\label{ex:labels}
+By Example~\ref{ex:relations}, the pooled analysis of Table~\ref{tab:example} finds: an \emph{x-conflict} between $r_1$ and $r_3$ (an agent reading a highly sensitive dataset is permitted by the Data Platform and denied by Compliance); an \emph{x-redundancy} of $r_1$ with respect to $r_4$ (Compliance already permits agents and humans on datasets, whatever the action); an \emph{x-irrelevancy} of $r_5$ (ML Engineering grants an agent the use of tool $t_7$, which the Data Platform has decommissioned); and an \emph{x-gap} for $q_1$ (no team has a rule for a tool deleting an API), while $q_2$ is covered by $r_6$. Rules $r_2$, $r_4$ and $r_6$ are free of cross-domain anomalies. No single team can establish any of these facts from its own two rules.
 \end{example}
 
 \subsection{Goal and threat model}
-Each domain $d$ must label its own rules and requests according to Definition~\ref{def:anom}. Domains and the coordinating server are honest but curious: they follow the protocol and try to learn other domains' rules from what they receive. No party may receive another party's rules. The reference is the \emph{pooled oracle}, which evaluates Definition~\ref{def:anom} on $\bigcup_d P_d$ and is exact by construction but violates the constraint. We measure how closely a non-pooling method reproduces the oracle's labels, what it communicates, and what the communicated data reveals.
+Each domain $d$ must label its own rules and requests according to Definition~\ref{def:anom}. Domains and the coordinating server are honest but curious: they follow the protocol and try to learn other domains' rules from what they receive. No party may receive another party's rules. Members that deviate from the protocol are outside the model; Section~\ref{sec:privacy} discusses what they could do. The reference is the \emph{pooled oracle}, which evaluates Definition~\ref{def:anom} on $\bigcup_d P_d$ and is exact by construction but violates the constraint. We measure how closely a non-pooling method reproduces the oracle's labels, what it communicates, and what the communicated data reveals.
 
 %% ============================================================================
-\section{The DyFHL-PA approach}
+\section{The DyFHL-PA protocol}
 \label{sec:method}
 
-Fig.~\ref{fig:arch} gives the overview. Each domain (i) analyses its own rules exactly, (ii) builds vertex aggregates of hashed hyperedge signatures for its shared-scope rules, (iii) receives the sum of the other members' aggregates, and (iv) decodes cross-domain anomalies for its own hyperedges. Under churn only deltas are sent.
+Fig.~\ref{fig:arch} gives the overview. Each domain (i) analyses its own rules exactly, (ii) builds vertex aggregates of hashed hyperedge signatures for its shared-scope rules, (iii) receives the sum of the other members' aggregates, and (iv) decodes cross-domain anomalies for its own hyperedges. Under churn only deltas are sent. This section defines the exchanged quantities; Section~\ref{sec:types} treats the four anomaly types one by one.
 
 \begin{figure}[t]
-\centering
-\begin{tikzpicture}[font=\footnotesize, node distance=4mm and 7mm,
-  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, fill=#1},
-  box/.default={white}, arr/.style={-{Stealth[length=2mm]}, semithick}]
-\node[box=blue!6] (pol) {Rules $P_d$\\(private)};
-\node[box=gray!10, right=of pol] (loc) {Exact local\\analyser};
-\node[box=blue!6, below=of pol] (hg) {Policy hypergraph\\value + wildcard vertices};
-\node[box=blue!6, below=of hg] (agg) {Signature aggregates\\$U_d[s,v,\eff,\cdot]$};
-\node[box=orange!12, right=22mm of agg] (srv) {Aggregation\\$C_d=\sum_{d'\neq d}U_{d'}$};
-\node[box=green!10, below=of agg] (dec) {Conjunctive decoder\\rule (\R) or learned (L)};
-\node[box=green!10, below=of dec] (out) {x-conflict, x-redundancy,\\x-irrelevancy, x-gap};
-\node[box=gray!10, right=22mm of out] (fed) {FedAvg of decoder\\(label-free task)};
-\draw[arr] (pol) -- (loc); \draw[arr] (pol) -- (hg); \draw[arr] (hg) -- (agg);
-\draw[arr] (agg) -- node[above]{upload / $\Delta$} (srv);
-\draw[arr] (srv.south) |- node[pos=.25, right]{context $C_d$} (dec.east);
-\draw[arr] (agg) -- (dec); \draw[arr] (dec) -- (out);
-\draw[arr, dashed, {Stealth[length=2mm]}-{Stealth[length=2mm]}] (fed.north) |- ($(dec.east)+(0,-2.5mm)$);
-\node[draw, dashed, rounded corners, fit=(pol)(loc)(hg)(agg)(dec)(out), inner sep=6pt, label={[font=\scriptsize]above left:domain $d$}] {};
-\end{tikzpicture}
-\caption{Overview of \name for one domain. Solid arrows: data flow; dashed: optional federated training of the learned decoder. Only aggregates and decoder weights leave the domain.}
+\centering\includegraphics[width=\linewidth]{generated/fig_architecture}
+\caption{Overview of \name for one domain $d$. Rules never leave the dashed frame; only the aggregates $U_d$, $L_d$ (or their deltas) and, for the learned decoder, model weights cross it. Intra-domain anomalies are decided by an exact local analyser; Algorithms~\ref{alg:conflict}--\ref{alg:irr} decide the cross-domain ones from the context returned by the server.}
 \label{fig:arch}
 \end{figure}
 
@@ -191,57 +253,258 @@ Let $h$ be a hash function, salted with a key shared by the members of a scope, 
 U_d[s,u,c]=\sum_{r\in P_d:\ \scp(r)=s,\ \eff(r)=c,\ u\in e(r)}\sigma(r)\ \in\mathbb{N}^B .
 \label{eq:agg}
 \end{equation}
-Entry $b$ counts the rules of $d$ in scope $s$ with effect $c$ that are incident to $u$ and hash to bin $b$. For entity vertices, $d$ also publishes $L_d[v]=\mathrm{alive}(v)$ for the entities it owns. The aggregate has at most $\sum_r |e(r)|$ non-zero entries, independent of $B$. Each member receives the \emph{context}
+Entry $b$ of $U_d[s,u,c]$ counts the rules of $d$ in scope $s$ with effect $c$ that are incident to vertex $u$ and hash to bin $b$. The aggregate has $\sum_r |e(r)|$ non-zero contributions, independent of $B$. For entity vertices, $d$ also publishes $L_d[v]=\mathrm{alive}(v)$ for the entities it owns and $L_d[v]=0$ for the others.
+
+\begin{example}
+\label{ex:agg}
+Take $B=8$ and, for readability, $h(r_i)=i-1$. Compliance owns $r_3$ (deny, bin 2) and $r_4$ (permit, bin 3). Its aggregate $U_B$ has $|e(r_3)|+|e(r_4)|=6+6=12$ non-zero entries, all equal to one, listed in Table~\ref{tab:UB}: $r_3$ deposits its signature on its three value vertices and on the wildcard vertices of \textit{type}, \textit{res} and \textit{tool}; $r_4$ on agent, human, dataset and on the wildcard vertices of \textit{sens}, \textit{act} and \textit{tool}. The table is all that Compliance discloses about its two rules.
+\end{example}
+
+\begin{table}[t]
+\caption{Aggregate $U_B$ uploaded by Compliance in the running example ($B=8$): vertices with a non-zero entry, per effect channel. Every listed entry equals 1.}
+\label{tab:UB}
+\centering\footnotesize
+\begin{tabular}{lll}
+\toprule
+Vertex & permit channel & deny channel\\
+\midrule
+\rawinput{generated/ex_tab_UB}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Context}
+Each member receives the \emph{context}
 \begin{equation}
 C_d=\sum_{d'\neq d}U_{d'}+\xi,\qquad \Lambda_d=\sum_{d'\neq d}L_{d'}+\xi',
 \label{eq:ctx}
 \end{equation}
-where $\xi,\xi'$ are optional zero-mean Gaussian noise terms of standard deviation $\sigma_{\!n}$ (Section~\ref{sec:privacy}). With secure aggregation~\cite{bonawitz2017practical} the server learns only the sums.
+where $\xi,\xi'$ are optional zero-mean Gaussian noise terms of standard deviation $\sigma_{\!n}$ (Section~\ref{sec:privacy}). With secure aggregation~\cite{bonawitz2017practical} the server learns only the sums. In the example the Data Platform receives $C_A=U_B+U_C$, in which the contributions of $r_3,\dots,r_6$ are superimposed; it cannot tell which of the two other teams a count comes from.
 
-\subsection{Conjunctive decoding}
+\subsection{Per-attribute evidence and conjunction}
 \label{sec:decode}
 For a hyperedge $e$ of domain $d$ with scope $s$ and an effect channel $c$, define per attribute $a$ the \emph{overlap evidence} and the \emph{subsumption evidence}, both vectors in $\mathbb{R}^B$:
 \begin{align}
 \mathrm{ov}_a(e,c)&=C_d[s,(a,\ast),c]+
-\begin{cases}\sum_{v\in D_a}C_d[s,(a,v),c] & \text{if } e_a=\ast,\\[2pt]
-\sum_{v\in e_a}C_d[s,(a,v),c] & \text{otherwise,}\end{cases}\label{eq:ov}\\
+\begin{cases}\sum_{v\in D_a}C_d[s,(a,v),c] & \text{if } (a,\ast)\in e,\\[2pt]
+\sum_{(a,v)\in e}C_d[s,(a,v),c] & \text{otherwise,}\end{cases}\label{eq:ov}\\
 \mathrm{sub}_a(e,c)&=C_d[s,(a,\ast),c]+
-\begin{cases}0 & \text{if } e_a=\ast,\\[2pt]
-\min_{v\in e_a}C_d[s,(a,v),c] & \text{otherwise.}\end{cases}\label{eq:sub}
+\begin{cases}0 & \text{if } (a,\ast)\in e,\\[2pt]
+\min_{(a,v)\in e}C_d[s,(a,v),c] & \text{otherwise.}\end{cases}\label{eq:sub}
 \end{align}
-Eq.~\eqref{eq:ov} mirrors the overlap condition: a foreign rule is compatible with $e$ on $a$ if it is a wildcard on $a$, or $e$ is, or they share a value. Eq.~\eqref{eq:sub} mirrors subsumption: the foreign rule is a wildcard on $a$, or contains every value of $e$. Evidence is then combined \emph{conjunctively} across attributes, bin by bin:
+Eq.~\eqref{eq:ov} is Proposition~\ref{lem:overlap} applied to counts: bin $b$ of $\mathrm{ov}_a(e,c)$ is the number of foreign rules of that bin and effect that are compatible with $e$ on $a$ (a rule with two shared values is counted twice, which does not matter for positivity). Eq.~\eqref{eq:sub} is Proposition~\ref{lem:sub}: a foreign rule contains $e$ on $a$ if it is a wildcard on $a$ or is incident to every value vertex of $e$; the minimum over the values of $e$ is positive in bin $b$ only if every one of them has a rule of that bin. Evidence is then combined \emph{conjunctively} across attributes, bin by bin:
 \begin{equation}
 \mathrm{OV}(e,c)=\min_{a\in\mathcal{A}}\mathrm{ov}_a(e,c),\qquad \mathrm{SUB}(e,c)=\min_{a\in\mathcal{A}}\mathrm{sub}_a(e,c).
 \label{eq:conj}
 \end{equation}
-A bin of $\mathrm{OV}$ is positive only if, on \emph{every} attribute, some foreign rule of that bin is compatible with $e$.
+A bin of $\mathrm{OV}$ is positive only if, on \emph{every} attribute, some foreign rule of that bin is compatible with $e$. All decisions below threshold the largest bin at $\tau=\tfrac12$.
 
-\paragraph{Rule decoder (\name-\R)} With $\bar c$ the effect opposite to $\eff(e)$ and threshold $\tau=\tfrac12$:
-\begin{align*}
-\text{x-conflict}(e)&\iff \max_b \mathrm{OV}(e,\bar c)_b>\tau,\\
-\text{x-redundancy}(e)&\iff \max_b \mathrm{SUB}(e,\eff(e))_b>\tau,\\
-\text{x-gap}(q)&\iff \max_b \textstyle\sum_c\mathrm{OV}(q,c)_b\le\tau,\\
-\text{x-irrelevancy}(e)&\iff \exists a:\ \max_{v\in e_a}\big(L_d[v]+\Lambda_d[v]\big)\le\tau,
-\end{align*}
-where the last test ranges over constrained entity attributes with at least one foreign-owned value.
+%% ============================================================================
+\section{Detecting each anomaly type}
+\label{sec:types}
 
-\subsection{Guarantees}
-\begin{proposition}[One-sided error]
-\label{prop:sound}
-With $\sigma_{\!n}=0$ and any $B\ge1$, \name-\R{} flags every x-conflict and every x-redundancy, decides x-irrelevancy exactly, and every request it flags as an x-gap is one.
+For each of the four anomaly types we give the decision rule, its guarantees with proofs, the algorithm run by a domain, and a worked example on Table~\ref{tab:example}. Throughout, $\sigma_{\!n}=0$ unless stated, $\bar c$ denotes the effect opposite to $c$, and $F^{c}(e)\subseteq F(e)$ denotes the foreign rules of effect $c$. The hash $h$ is modelled as uniform and independent over rules in the probabilistic statements. All numbers in the examples are produced by the released code and checked against the pooled oracle.
+
+\subsection{Cross-domain conflict}
+\label{sec:conflict}
+\paragraph{Decision rule} $\text{x-conflict}(e)\iff\max_b\mathrm{OV}(e,\overline{\eff(e)})_b>\tau$.
+
+\begin{proposition}[No missed conflict]
+\label{thm:conf-complete}
+For any $B\ge1$, if $e$ has an x-conflict then the rule flags it.
 \end{proposition}
 \begin{proof}
-Let $r'\in F(e)$ overlap $e$ with the opposite effect and let $b=h(r')$. Fix an attribute $a$. If $r'_a=\ast$, $r'$ is incident to $(a,\ast)$ and contributes $1$ to $C_d[s,(a,\ast),\bar c]_b$. Otherwise $r'$ is incident to its value vertices in $D_a$; if $e_a=\ast$ these are all summed in \eqref{eq:ov}, and if $e_a\neq\ast$ overlap gives a shared $v\in e_a\cap r'_a$ whose term is summed. In every case $\mathrm{ov}_a(e,\bar c)_b\ge1$, so $\mathrm{OV}(e,\bar c)_b\ge1>\tau$. For redundancy let $e\sqsubseteq r'$ with equal effect. If $r'_a=\ast$ the wildcard term is $\ge1$; otherwise $e_a\neq\ast$ and $e_a\subseteq r'_a$, so every $v\in e_a$ has $C_d[s,(a,v),c]_b\ge1$ and so has the minimum in \eqref{eq:sub}. Hence $\mathrm{SUB}(e,c)_b\ge1$. If a foreign rule matches request $q$, the same argument with $e_a=\{q_a\}$ gives a bin with $\sum_c\mathrm{OV}(q,c)_b\ge1$, so $q$ is not flagged; contrapositively a flagged gap is a true gap. Liveness sums are exact without noise.
+Let $r'\in F^{\bar c}(e)$ overlap $e$, $c=\eff(e)$, and $b=h(r')$. Fix an attribute $a$; by Proposition~\ref{lem:overlap} the two rules are compatible on $a$. If $(a,\ast)\in e(r')$, then $r'$ contributes $1$ to $C_d[s,(a,\ast),\bar c]_b$, the first term of \eqref{eq:ov}. Otherwise $r'$ is incident to value vertices of $\mathcal{V}_a$ only: if $(a,\ast)\in e$ all of them are summed in \eqref{eq:ov}; if not, compatibility gives a shared vertex $(a,v)\in e\cap e(r')$, whose term is summed. In every case $\mathrm{ov}_a(e,\bar c)_b\ge1$, hence $\mathrm{OV}(e,\bar c)_b\ge1>\tau$.
+\end{proof}
+
+\begin{proposition}[Exactness without collisions]
+\label{thm:conf-exact}
+If $h$ is injective on $F^{\bar c}(e)$, the rule flags $e$ iff $e$ has an x-conflict.
+\end{proposition}
+\begin{proof}
+One direction is Proposition~\ref{thm:conf-complete}. Conversely let $\mathrm{OV}(e,\bar c)_b>\tau$. Entries are integers, so $\mathrm{ov}_a(e,\bar c)_b\ge1$ for all $a$. By \eqref{eq:agg} and \eqref{eq:ctx}, bin $b$ of the channel $\bar c$ in scope $s$ receives contributions only from rules of $F^{\bar c}(e)$ with hash $b$, and by injectivity there is exactly one, say $r'$. For each $a$, $\mathrm{ov}_a(e,\bar c)_b\ge1$ then means that $r'$ is incident to $(a,\ast)$, or $e$ is and $r'$ is incident to some value vertex, or $r'$ is incident to a value vertex of $e$: $r'$ and $e$ are compatible on $a$. By Proposition~\ref{lem:overlap} they overlap, and their effects differ.
 \end{proof}
 
 \begin{proposition}[False-positive bound]
 \label{prop:fp}
-Model $h$ as uniform and independent over rules. Let $e$ have no x-conflict and let $N$ be the number of opposite-effect rules in $F(e)$. With $\sigma_{\!n}=0$, \name-\R{} flags $e$ with probability at most $N(N-1)/(2B)$. The same bound holds for x-redundancy with $N$ the number of same-effect foreign rules, and for the probability that a true x-gap is missed with $N=|F(q)|$.
+Let $e$ have no x-conflict and $N=|F^{\bar c}(e)|$. The rule flags $e$ with probability at most $N(N-1)/(2B)$. Consequently $B\ge N^2/(2\delta)$ bins suffice for a false-positive probability of at most $\delta$.
 \end{proposition}
 \begin{proof}
-A flag requires a bin $b$ with $\mathrm{ov}_a(e,\bar c)_b\ge1$ for all $a$, i.e.\ for each attribute some opposite-effect foreign rule in bin $b$ compatible with $e$ on that attribute. No single rule is compatible on all attributes, since it would overlap $e$. So at least two distinct rules among the $N$ share bin $b$. Two given rules collide with probability $1/B$; a union bound over the $\binom N2$ pairs gives the claim. The other cases are identical.
+A flag requires a bin $b$ in which, for each attribute, some rule of $F^{\bar c}(e)$ with hash $b$ is compatible with $e$. No single rule is compatible on all attributes, since by Proposition~\ref{lem:overlap} it would overlap $e$. So at least two distinct rules among the $N$ share bin $b$. Two given rules collide with probability $1/B$; a union bound over the $\binom N2$ pairs gives the claim.
 \end{proof}
-The bound is loose, because it ignores that the colliding rules must jointly cover all attributes, but it identifies the governing ratio: errors vanish as $B$ grows relative to $N^2$ and appear only as extra conflicts and redundancies or hidden gaps. An auditor can therefore treat a negative answer for conflict and redundancy as definitive.
+The bound is loose, because it ignores that the colliding rules must jointly cover all attributes, but it identifies the governing ratio $N^2/B$.
+
+\begin{algorithm}[t]
+\caption{\textsc{DetectConflict} at domain $d$ for one own hyperedge $e$ (scope $s$, effect $c$)}
+\label{alg:conflict}
+\begin{algorithmic}[1]
+\Require context $C_d$, threshold $\tau$
+\State $m\gets(+\infty,\dots,+\infty)\in\mathbb{R}^B$
+\ForAll{attributes $a$}
+  \State $x\gets C_d[s,(a,\ast),\bar c]$ \Comment{foreign wildcards on $a$}
+  \If{$(a,\ast)\in e$} \Comment{$e$ accepts every value of $a$}
+    \State $x\gets x+\sum_{v\in D_a}C_d[s,(a,v),\bar c]$
+  \Else
+    \State $x\gets x+\sum_{(a,v)\in e}C_d[s,(a,v),\bar c]$ \Comment{shared values}
+  \EndIf
+  \State $m\gets\min(m,x)$ \Comment{conjunction over attributes, per bin}
+\EndFor
+\State \Return $\max_b m_b>\tau$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{example}[Conflict of $r_1$; a false positive for $r_2$]
+\label{ex:conflict}
+The Data Platform runs Algorithm~\ref{alg:conflict} on $r_1$ (permit) with the deny channel of $C_A$ (Fig.~\ref{fig:exconf}b). The only foreign deny rule is $r_3$, in bin 2. On \textit{type} and \textit{res}, $r_3$ sits on the wildcard vertex, so $x_2=1$. On \textit{sens}, $r_1$ is a wildcard and the sum over all values picks up $r_3$ at \textit{high}. On \textit{act} the shared vertex \textit{read} contributes. On \textit{tool} both are wildcards and the wildcard vertex contributes. Bin 2 equals 1 on all five attributes, $\mathrm{OV}(r_1,\textsf{deny})=(0,0,1,0,0,0,0,0)$, and the conflict found in Example~\ref{ex:labels} is flagged without the Data Platform having seen $r_3$.
+
+For $r_2$ (deny) the permit channel holds $r_4$, $r_5$ and $r_6$ in bins 3, 4 and 5 (Fig.~\ref{fig:exconf}c). Each bin fails on some attribute: bin 3 ($r_4$) on \textit{res}, bin 4 ($r_5$) on \textit{type} and \textit{act}, bin 5 ($r_6$) on \textit{res}. $\mathrm{OV}$ is zero and $r_2$ is correctly cleared; the hash is injective, as Proposition~\ref{thm:conf-exact} requires. Now let $B=2$ with $r_4$ and $r_5$ both in bin 1 (Fig.~\ref{fig:exconf}d). In that bin $r_4$ supplies \textit{type} (human), \textit{sens}, \textit{act} and \textit{tool} (wildcards), and $r_5$ supplies \textit{res} (model): the bin is positive on every attribute although neither rule overlaps $r_2$, and $r_2$ is falsely flagged. This is the event bounded by Proposition~\ref{prop:fp}; with $N=3$ the bound is $3\cdot2/(2B)$, vacuous for $B=2$ and $0.375$ for $B=8$.
+\end{example}
+
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/ex_conflict}
+\caption{Conflict detection in the running example. (a) Hyperedges of $r_1$ and $r_3$: they share (\textit{act}, read) and are complementary on wildcard vertices elsewhere. (b)--(d) Overlap evidence $\mathrm{ov}_a$ per attribute (rows) and bin (columns); the last row is the conjunction $\mathrm{OV}$. A bin that is positive in every row signals a conflict.}
+\label{fig:exconf}
+\end{figure}
+
+\subsection{Cross-domain redundancy}
+\label{sec:redundancy}
+\paragraph{Decision rule} $\text{x-redundancy}(e)\iff\max_b\mathrm{SUB}(e,\eff(e))_b>\tau$.
+
+\begin{proposition}[Redundancy detection]
+\label{thm:red}
+Let $c=\eff(e)$ and $N=|F^{c}(e)|$. (i) For any $B\ge1$, if $e$ is x-redundant the rule flags it. (ii) If $h$ is injective on $F^{c}(e)$, the rule flags $e$ iff $e$ is x-redundant. (iii) If $e$ is not x-redundant, it is flagged with probability at most $N(N-1)/(2B)$.
+\end{proposition}
+\begin{proof}
+(i) Let $r'\in F^{c}(e)$ with $e\sqsubseteq r'$ and $b=h(r')$. Fix $a$. By Proposition~\ref{lem:sub}, either $(a,\ast)\in e(r')$, and the wildcard term of \eqref{eq:sub} is at least 1 in bin $b$; or $(a,\ast)\notin e$ and every value vertex of $e$ in $\mathcal{V}_a$ belongs to $e(r')$, so each $C_d[s,(a,v),c]_b\ge1$ and so is their minimum. Hence $\mathrm{SUB}(e,c)_b\ge1$. (ii) Let $\mathrm{SUB}(e,c)_b\ge1$ and let $r'$ be the unique rule of $F^{c}(e)$ in bin $b$. For each $a$, $\mathrm{sub}_a(e,c)_b\ge1$ means that $r'$ is incident to $(a,\ast)$, or $e$ is not a wildcard on $a$ and $r'$ is incident to every value vertex of $e$ in $\mathcal{V}_a$: containment on $a$. Proposition~\ref{lem:sub} gives $e\sqsubseteq r'$. (iii) As in Proposition~\ref{prop:fp}: without a single containing rule, a positive bin needs two distinct rules of $F^c(e)$ in it.
+\end{proof}
+
+\begin{algorithm}[t]
+\caption{\textsc{DetectRedundancy} at domain $d$ for one own hyperedge $e$ (scope $s$, effect $c$)}
+\label{alg:red}
+\begin{algorithmic}[1]
+\Require context $C_d$, threshold $\tau$
+\State $m\gets(+\infty,\dots,+\infty)\in\mathbb{R}^B$
+\ForAll{attributes $a$}
+  \State $x\gets C_d[s,(a,\ast),c]$ \Comment{foreign rules that accept every value of $a$}
+  \If{$(a,\ast)\notin e$}
+    \State $x\gets x+\min_{(a,v)\in e}C_d[s,(a,v),c]$ \Comment{rules listing all values of $e$}
+  \EndIf
+  \State $m\gets\min(m,x)$
+\EndFor
+\State \Return $\max_b m_b>\tau$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{example}[Redundancy of $r_1$]
+\label{ex:red}
+For $r_1$ (permit) the Data Platform reads the permit channel of $C_A$, which holds $r_4$, $r_5$, $r_6$ in bins 3, 4, 5 (Fig.~\ref{fig:exred}b). On \textit{type}, the single value \emph{agent} of $r_1$ is used by $r_4$ and $r_5$: bins 3 and 4. On \textit{res}, \emph{dataset} is used by $r_4$ only: bin 3. On \textit{sens}, $r_1$ is a wildcard, so only foreign wildcards count: $r_4$ and $r_5$, bins 3 and 4; rule $r_6$, which requires \emph{low}, does not contain a rule that accepts every sensitivity. On \textit{act}, no foreign permit rule lists \emph{read}, but $r_4$ and $r_6$ are wildcards: bins 3 and 5. On \textit{tool}, bins 3 and 5 again. Only bin 3 survives the conjunction, $\mathrm{SUB}(r_1,\textsf{permit})=(0,0,0,1,0,0,0,0)$, and $r_1$ is flagged: it is implied by a rule of another team (namely $r_4$). Conversely, Compliance evaluates $r_4$ against $r_1$, $r_5$, $r_6$ (Fig.~\ref{fig:exred}c): on \textit{type} the minimum over $\{\text{agent},\text{human}\}$ is zero in every bin, because no foreign permit rule lists both values and none is a wildcard on \textit{type}. $r_4$ is not redundant.
+\end{example}
+
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/ex_redundancy}
+\caption{Redundancy detection in the running example. (a) $e(r_1)$ is contained in $e(r_4)$ on \textit{type} and \textit{res}, and $r_4$ is a wildcard elsewhere. (b), (c) Subsumption evidence $\mathrm{sub}_a$ per attribute and bin, with the conjunction $\mathrm{SUB}$ in the last row.}
+\label{fig:exred}
+\end{figure}
+
+\subsection{Cross-domain incompleteness (gaps)}
+\label{sec:gap}
+A request $q$ that $d$ cannot decide locally is a query hyperedge with one value vertex per attribute, so \eqref{eq:ov} reduces to $\mathrm{ov}_a(q,c)=C_d[s,(a,\ast),c]+C_d[s,(a,q_a),c]$, which is Proposition~\ref{lem:match} applied to counts.
+\paragraph{Decision rule} $\text{x-gap}(q)\iff\max_b\sum_{c}\mathrm{OV}(q,c)_b\le\tau$: no bin of either effect channel is positive on all attributes.
+
+\begin{proposition}[Gap detection]
+\label{thm:gap}
+(i) For any $B\ge1$, every request flagged as an x-gap is one. (ii) If $h$ is injective on $F^{c}(q)$ for both effects, the rule flags $q$ iff $q$ is an x-gap. (iii) A true x-gap is missed with probability at most $\sum_c N_c(N_c-1)/(2B)$, $N_c=|F^c(q)|$.
+\end{proposition}
+\begin{proof}
+(i) Contrapositive: let $r'\in F^c(q)$ match $q$ and $b=h(r')$. By Proposition~\ref{lem:match}, for each $a$ the rule $r'$ is incident to $(a,q_a)$ or to $(a,\ast)$, so $\mathrm{ov}_a(q,c)_b\ge1$ and $\mathrm{OV}(q,c)_b\ge1$: $q$ is not flagged. (ii) If $\mathrm{OV}(q,c)_b\ge1$ and bin $b$ of channel $c$ holds a single rule $r'$, then $r'$ is incident to $(a,q_a)$ or $(a,\ast)$ for every $a$, i.e.\ $r'\models q$. (iii) A missed gap needs, in some channel, a positive bin without a matching rule, hence two rules of that channel in one bin; apply the union bound per channel.
+\end{proof}
+The error is on the opposite side to conflicts: collisions can hide a gap but cannot invent one.
+
+\begin{algorithm}[t]
+\caption{\textsc{DetectGap} at domain $d$ for a request $q$ in scope $s$ that no rule of $P_d$ matches}
+\label{alg:gap}
+\begin{algorithmic}[1]
+\Require context $C_d$, threshold $\tau$
+\State $g\gets(0,\dots,0)\in\mathbb{R}^B$
+\ForAll{effects $c\in\{\textsf{permit},\textsf{deny}\}$}
+  \State $m\gets\min_{a}\big(C_d[s,(a,\ast),c]+C_d[s,(a,q_a),c]\big)$ \Comment{a foreign rule of effect $c$ matches}
+  \State $g\gets g+m$
+\EndFor
+\State \Return $\max_b g_b\le\tau$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{example}[A gap and a covered request]
+\label{ex:gap}
+Neither $r_1$ nor $r_2$ matches $q_1$ or $q_2$, so the Data Platform asks whether another team decides them. For $q_1$ (a tool deleting an API, Fig.~\ref{fig:exgap}b) the permit channel is empty on \textit{type}: no foreign permit rule lists \emph{tool} and none is a wildcard there, so the conjunction is zero in every bin. The deny channel (only $r_3$, bin 2) fails on \textit{sens} (\emph{low} versus \emph{high}) and on \textit{act}. Hence $\sum_c\mathrm{OV}(q_1,c)=0$ and $q_1$ is reported as a gap of the whole workspace. For $q_2$ (Fig.~\ref{fig:exgap}c) bin 5 of the permit channel is positive on all attributes: \emph{human}, \emph{api} and \emph{low} are value vertices of $r_6$, and $r_6$ is a wildcard on \textit{act} and \textit{tool}. $q_2$ is covered, and the Data Platform learns that some other member permits it.
+\end{example}
+
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/ex_gap}
+\caption{Gap detection in the running example. (a) Query hyperedges of $q_1$ and $q_2$ (dotted) and the hyperedge of $r_6$. (b), (c) Evidence in the permit channel; a bin positive in every row means that a foreign permit rule matches the request.}
+\label{fig:exgap}
+\end{figure}
+
+\subsection{Cross-domain irrelevancy}
+\label{sec:irr}
+Irrelevancy concerns entity vertices only and needs no sketch. Each entity has one owner, so $L_d[v]+\Lambda_d[v]=\sum_{d'}L_{d'}[v]=\mathrm{alive}(v)$.
+\paragraph{Decision rule} $\text{x-irrelevancy}(e)\iff$ for some entity attribute $a$ with $(a,\ast)\notin e$: $\max_{(a,v)\in e}\big(L_d[v]+\Lambda_d[v]\big)\le\tau$ and some $(a,v)\in e$ has $\mathrm{own}(v)\neq d$.
+
+\begin{proposition}[Irrelevancy detection is exact]
+\label{thm:irr}
+With $\sigma_{\!n}=0$ the rule flags $e$ iff $e$ is x-irrelevant, for any $B$.
+\end{proposition}
+\begin{proof}
+$L_{d'}[v]=\mathrm{alive}(v)$ if $d'=\mathrm{own}(v)$ and $0$ otherwise, so the sum over all domains is $\mathrm{alive}(v)\in\{0,1\}$. The maximum over the values of $e$ on $a$ is at most $\tau$ iff all of them are dead. The ownership test is local, since ownership of an entity identifier is public within the scope. This is Definition~\ref{def:anom}.
+\end{proof}
+
+\begin{algorithm}[t]
+\caption{\textsc{DetectIrrelevancy} at domain $d$ for one own hyperedge $e$}
+\label{alg:irr}
+\begin{algorithmic}[1]
+\Require own liveness $L_d$, received liveness $\Lambda_d$, threshold $\tau$
+\ForAll{entity attributes $a$ with $(a,\ast)\notin e$}
+  \State $\ell\gets\max_{(a,v)\in e}\big(L_d[v]+\Lambda_d[v]\big)$
+  \If{$\ell\le\tau$ \textbf{and} some $(a,v)\in e$ has $\mathrm{own}(v)\neq d$} \Return \textbf{true}
+  \EndIf
+\EndFor
+\State \Return \textbf{false}
+\end{algorithmic}
+\end{algorithm}
+
+\begin{example}[Irrelevancy of $r_5$]
+\label{ex:irr}
+ML Engineering owns $t_9$ and publishes $L_C=(0,0,1)$ over $(t_1,t_7,t_9)$; the Data Platform publishes $L_A=(1,0,0)$, since $t_7$ is decommissioned; Compliance owns no tool. ML Engineering receives $\Lambda_C=L_A+L_B=(1,0,0)$ and obtains $L_C+\Lambda_C=(1,0,1)$ (Fig.~\ref{fig:exirr}). Rule $r_5$ constrains \textit{tool} to $\{t_7\}$, whose evidence is 0 and whose owner is another domain: $r_5$ can never apply and is flagged. A rule naming $\{t_7,t_9\}$ would not be, because $t_9$ is alive.
+\end{example}
+
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/ex_irrelevancy}
+\caption{Irrelevancy detection in the running example. (a) $e(r_5)$ contains the entity vertex $t_7$. (b) Liveness known to ML Engineering and received from the other members.}
+\label{fig:exirr}
+\end{figure}
+
+\subsection{Summary of guarantees}
+Table~\ref{tab:guarantees} collects the results. Errors are one-sided for the three sketch-based types and vanish as $B$ grows relative to $N^2$; an auditor can treat ``no conflict'' and ``no redundancy'' as definitive and a reported gap as certain.
+
+\begin{table}[t]
+\caption{Guarantees of the rule decoder without noise. $N$: number of foreign rules of the relevant effect in the scope.}
+\label{tab:guarantees}
+\centering\footnotesize
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}XXl@{}}
+\toprule
+Anomaly & Never wrong when it says & Possible error & Probability\\
+\midrule
+x-conflict\newline(Props.~\ref{thm:conf-complete}--\ref{prop:fp}) & ``no conflict'' & spurious conflict & $\le N(N-1)/(2B)$\\
+x-redundancy\newline(Prop.~\ref{thm:red}) & ``not redundant'' & spurious redundancy & $\le N(N-1)/(2B)$\\
+x-gap\newline(Prop.~\ref{thm:gap}) & ``gap'' & missed gap & $\le\sum_c N_c(N_c-1)/(2B)$\\
+x-irrelevancy\newline(Prop.~\ref{thm:irr}) & both answers & none & 0\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%% ============================================================================
+\section{Dynamics, learning, cost and privacy}
+\label{sec:rest}
 
 \subsection{Dynamics: exact delta maintenance}
 \label{sec:delta}
@@ -253,6 +516,11 @@ Let $P_d$ change to $P'_d$ by removing a set $R^-$ and inserting a set $R^+$ of 
 Eq.~\eqref{eq:agg} is a sum over rules of terms that depend on one rule each.
 \end{proof}
 A rule modification is a removal followed by an insertion; an entity that joins or leaves changes one entry of $L_d$. A domain therefore uploads a sparse delta proportional to the number of changed rules, the server adds it to the running sum, and members refresh only the affected context entries. No retraining is involved, because the rule decoder has no parameters and the learned decoder (below) depends on the context only through statistics whose distribution does not change with a single update. Algorithm~\ref{alg:dyfhl} summarises the protocol.
+
+\begin{example}[Withdrawing a rule]
+\label{ex:delta}
+Compliance withdraws $r_3$. It uploads $\Delta=-U(\{r_3\})$, which has $|e(r_3)|=6$ non-zero entries (minus one at \emph{high}, \emph{read}, \emph{export} and the wildcard vertices of \textit{type}, \textit{res} and \textit{tool}, deny channel, bin 2); its aggregate keeps the six entries of $r_4$ in Table~\ref{tab:UB}. The Data Platform adds $\Delta$ to $C_A$; bin 2 of the deny channel becomes zero on every attribute, Algorithm~\ref{alg:conflict} now returns false for $r_1$, and the conflict of Example~\ref{ex:conflict} disappears without any rule being re-sent.
+\end{example}
 
 \begin{algorithm}[t]
 \caption{\name at domain $d$ (server steps marked \textsc{srv})}
@@ -267,8 +535,7 @@ A rule modification is a removal followed by an insertion; an entity that joins 
   \State \textsc{srv}: $T\gets T+\Delta$; forward $\Delta$ to the other members of the touched scopes
 \EndLoop
 \ForAll{own hyperedge or request $e$ whose context changed}
-  \State compute $\mathrm{OV}(e,\cdot)$, $\mathrm{SUB}(e,\cdot)$ by \eqref{eq:ov}--\eqref{eq:conj}
-  \State decode with the rule (\R) or the learned heads (L)
+  \State run Algorithms~\ref{alg:conflict}--\ref{alg:irr} (rule decoder \R), or the learned heads (L) on the same evidence
 \EndFor
 \end{algorithmic}
 \end{algorithm}
@@ -280,29 +547,33 @@ With noise, or with a small $B$, a fixed threshold on $\max_b$ is not obviously 
 No cross-domain labels exist to train on, since producing them is the problem. We use a \emph{pseudo-domain} task that every domain can build alone. At each local step, domain $d$ (i) splits its rules at random into two halves, (ii) adds synthetic variants of its own rules (copies with flipped or kept effect, generalised by dropping an attribute or specialised by constraining a wildcard, placed in the opposite half; some refer to entities $d$ owns, with random liveness), (iii) computes with its exact local analyser the labels of Definition~\ref{def:anom} with the other half playing the foreign domain, and (iv) decodes each half from the aggregate of the other, to which noise of the deployment level is added. The heads are trained with binary cross-entropy on these labels and averaged across domains with FedAvg~\cite{mcmahan2017communication}. Only the weights of the heads are shared. An optional \emph{learned message channel} lets each rule add a trained embedding of its vertex set to its signature; it is evaluated as an ablation.
 
 \subsection{Complexity and communication}
-Building $U_d$ costs $O(\sum_{r\in P_d}|e(r)|)$. Decoding one hyperedge costs $O(A\,B)$ after $O(A)$ gathers, so a domain with $n_d$ shared-scope rules spends $O(n_d A B)$, against $O(n^2A)$ for the pooled oracle on $n=\sum_d n_d$ rules. The initial upload has at most $\sum_r|e(r)|\le n_d(A+\sum_a(|r_a|-1))$ non-zeros; a delta has that many per changed rule. The receiver's context is dense in the worst case, $|M_s|$-independent, of size $S_d(|\mathcal V|)\,2B$ for $S_d$ scopes.
+Building $U_d$ costs $O(\sum_{r\in P_d}|e(r)|)$. Decoding one hyperedge costs $O(A\,B)$ after $O(A)$ gathers, so a domain with $n_d$ shared-scope rules spends $O(n_d A B)$, against $O(n^2A)$ for the pooled oracle on $n=\sum_d n_d$ rules. The upload of a domain has $\sum_{r}|e(r)|$ non-zero entries whatever $B$ is, and a delta has $|e(r)|$ entries per changed rule. The context a member receives is dense in the worst case: $S_d\,|\mathcal V|\,2B$ counts for $S_d$ scopes.
 
 \subsection{Privacy analysis}
 \label{sec:privacy}
-\paragraph{What is exchanged} A member receives, per scope, vertex, effect and bin, the number of foreign rules incident to that vertex. It never receives a rule, an identifier, or which domain a count comes from when the scope has more than two members.
+\paragraph{What is exchanged} A member receives, per scope, vertex, effect and bin, the number of foreign rules incident to that vertex, summed over the other members. It never receives a rule identifier, and it cannot attribute a count to a member when the scope has three or more members. Rule identifiers are random 64-bit nonces chosen by their owner, and $h$ is a keyed hash (we use the splitmix64 finaliser with a per-scope salt), so a member cannot predict in which bin a foreign rule lands.
 
-\paragraph{What can be inferred} The bin index links the vertices of a rule. If a bin of the context holds a single foreign rule, its non-zero entries across vertices are exactly that rule's hyperedge, and the rule is revealed. The expected number of foreign rules per bin is $N_s/B$ for $N_s$ foreign rules in scope $s$, so $B$ controls a direct trade-off: Proposition~\ref{prop:fp} wants $B\gg N^2$, while hiding rules among others wants $B\ll N_s$. In a two-member scope the context equals the peer's aggregate. \name therefore achieves \emph{data minimisation}: domains disclose which attribute values their shared-scope rules use, mixed within bins, instead of the rules, and disclose nothing about rules outside shared scopes. It does not achieve secrecy of shared-scope rules against a determined member when $B$ is large.
+\paragraph{Exposure} The bin index links the vertices of a rule. If a foreign rule is the only one of its effect in its bin, the non-zero entries of that bin across vertices are exactly its hyperedge: the member learns the rule's conditions and effect, though not its owner. We call such a rule \emph{exposed}. When a bin holds $k\ge2$ rules, the member sees the multiset union of their hyperedges, a form of $k$-anonymity at bin level. For a uniform hash and $n$ foreign rules of one effect in a scope, a given rule is exposed with probability $(1-1/B)^{n-1}\approx e^{-(n-1)/B}$. Section~\ref{sec:sketch} measures the exposed fraction on all benchmarks and finds it matches this prediction.
 
-\paragraph{Noise and differential privacy} Adding or removing one rule changes at most $2A$ entries of \eqref{eq:agg} by one when value sets have at most two values, an $\ell_2$ sensitivity of $\sqrt{2A}$. The Gaussian mechanism~\cite{dwork2014algorithmic} then gives $(\varepsilon,\delta)$-differential privacy at rule level per release for $\sigma_{\!n}=\sqrt{2A}\sqrt{2\ln(1.25/\delta)}/\varepsilon$. Section~\ref{sec:noise} shows that the accuracy of the conjunctive decoder collapses well before $\sigma_{\!n}$ reaches the values that small $\varepsilon$ requires, because a minimum over attributes amplifies noise. We regard this as a property of any decoder that must certify a conjunction from independent noisy counts.
+\paragraph{Choosing $B$, and why it is hard} By Proposition~\ref{prop:fp}, $B\ge N^2/(2\delta)$ bins bound the false-positive probability by $\delta$; keeping the expected exposed fraction below $\eta$ needs $B\le(n-1)/\ln(1/\eta)$. With $N\approx n$ the two conditions meet only if $n\le 2\delta/\ln(1/\eta)$, that is, never for useful $\delta$ and $\eta$. The false-positive bound is loose, so this argument shows only that the sufficient conditions are incompatible; the measurements in Fig.~\ref{fig:leakage} show that the trade-off itself is real: no sketch size gives both high accuracy and low exposure. \name therefore offers \emph{data minimisation} rather than secrecy. A domain discloses nothing about its rules outside shared scopes; inside a scope it discloses, for a chosen $B$, a measurable fraction of its rules to the other members, never to the server when secure aggregation~\cite{bonawitz2017practical} is used. Deployments that cannot accept this must compute the per-bin minimum of \eqref{eq:conj} under secure multi-party computation, which we leave to future work.
+
+\paragraph{Noise and differential privacy} Adding or removing one rule changes $|e(r)|$ entries of \eqref{eq:agg} by one, an $\ell_2$ sensitivity of $\sqrt{e_{\max}}$ with $e_{\max}=\max_r|e(r)|$; for value sets of at most two values $e_{\max}\le2A$. The Gaussian mechanism~\cite{dwork2014algorithmic} with $\sigma_{\!n}=\sqrt{e_{\max}}\sqrt{2\ln(1.25/\delta)}/\varepsilon$ makes one release $(\varepsilon,\delta)$-differentially private at rule level. Releases compose: if every delta is released with fresh noise, the noise accumulated in a member's context grows with the number of deltas, and a rule is involved in two releases (insertion and removal). Section~\ref{sec:noise} shows that the conjunctive decoder collapses well before $\sigma_{\!n}$ reaches the values that a small $\varepsilon$ requires, because a minimum over attributes amplifies noise in any one of them.
+
+\paragraph{Members that deviate} The analysis above assumes honest-but-curious members. A member that uploads inflated counts makes others see spurious conflicts and redundancies (an attack on the auditors' attention) and can hide true gaps; a member that uploads negative counts can cancel another's contribution and hide a true conflict. Secure aggregation with input validation, which enforces non-negative counts bounded by the incidences a member declares, removes the second attack but not the first. A non-owner cannot falsify liveness if the server accepts $L_{d}[v]$ only from $\mathrm{own}(v)$.
 
 %% ============================================================================
 \section{Experimental setup}
 \label{sec:setup}
 
-\paragraph{Research questions} RQ1: how close does \name come to the pooled oracle, and how do alternatives that do not pool policies compare? RQ2: which design elements matter? RQ3: how do sketch size and noise trade accuracy against communication and privacy? RQ4: how does the approach scale with rules and domains? RQ5: what does delta maintenance buy under churn?
+\paragraph{Research questions} RQ1: how close does \name come to the pooled oracle, and how do alternatives that do not pool policies compare? RQ2: which design elements matter? RQ3: how do sketch size and noise trade accuracy against exposure of rules? RQ4: how does the approach scale with rules and domains? RQ5: what does delta maintenance buy under churn? RQ6: does the method behave as expected on naturally occurring anomalies and on a concrete healthcare scope?
 
-\paragraph{Datasets} No public corpus of multi-domain policies with cross-domain anomaly labels exists. We build three benchmarks from three rule sources with one procedure, and state plainly what is real and what is generated.
+\paragraph{Datasets} No public corpus of policies from several domains with labels for cross-domain anomalies exists. We build three benchmarks from three rule sources with one procedure, and state plainly what is real and what is generated.
 \begin{itemize}
 \item \emph{Agentic} (synthetic). Eight attributes: subject type (agent, MCP server, tool, application, legacy system, human), role, clearance, resource type, sensitivity, action, trust context and tool identity (60 entities). Each domain has its own Dirichlet preference over values, so domains are non-IID.
 \item \emph{XS-ABAC} (derived). Attribute data of the healthcare, university, project-management and online-video case studies of Xu and Stoller~\cite{xu2015mining}: real users and resources with their attribute values. Rules are generated as conjunctions of attribute-value conditions taken from real user and resource records of one case study; the original ten or so rules per case study are too few to form a benchmark.
 \item \emph{AMZ-Access} (derived). The Amazon employee access data~\cite{amazon2013access}: each rule keeps the resource and three to five role attributes of a real access record (restricted to the 25 most frequent values per column).
 \end{itemize}
-For each source we create $K=6$ domains and six collaboration scopes with two to four members, 400 shared-scope rules per domain, and 250 candidate requests per domain of which those not covered locally are kept. To control prevalence, 10\% of the rules are replaced by an overlapping variant of a foreign rule with the opposite effect, 10\% by a variant subsumed by a foreign rule, and 8\% refer to decommissioned foreign entities (15\% of entities are dead). \emph{All labels are computed by the pooled exact oracle on the final rule sets}, so naturally occurring anomalies are labelled as well; injection only shifts prevalence. Table~\ref{tab:data} gives the resulting statistics. The domain and scope structure of the two derived benchmarks is imposed by us; only the attribute data are real.
+For each source we create $K=6$ domains and six collaboration scopes with two to four members, 400 shared-scope rules per domain, and 250 candidate requests per domain of which those not covered locally are kept. To control prevalence, 10\% of the rules are replaced by an overlapping variant of a foreign rule with the opposite effect, 10\% by a variant subsumed by a foreign rule, and 8\% refer to decommissioned foreign entities (15\% of entities are dead). \emph{All labels are computed by the pooled exact oracle on the final rule sets}, so naturally occurring anomalies are labelled as well; injection only shifts prevalence. Table~\ref{tab:data} gives the resulting statistics. The domain and scope structure of the two derived benchmarks is imposed by us; only the attribute data are real. To check that the results do not depend on injection, a separate study (Section~\ref{sec:natural}) sets all injection rates to zero, so that every label is a naturally occurring anomaly. As in standard policy analysers, anomalies are defined over the attribute space: an overlap may involve a combination of attribute values that no current user holds.
 
 \begin{table}[t]
 \caption{Benchmark statistics (means over seeds). Prevalence is the fraction of positive labels per task.}
@@ -332,6 +603,8 @@ AMZ-Access & 11 & \namazonrules & \namazonreq & \prevamazoncon & \prevamazonred 
 \end{itemize}
 The pooled oracle scores 1 on every metric by definition and is the reference, not a competitor.
 
+\paragraph{Hashing} Rule identifiers, which are sequential in our generator, are mapped to bins by the splitmix64 finaliser with a per-run salt. Fig.~\ref{fig:leakage}a confirms that the resulting collision statistics match those of a uniform hash.
+
 \paragraph{Metrics and protocol} Per task we report F1 of the positive class at threshold $0.5$ and the area under the precision--recall curve (AUPRC); macro averages are over the four tasks. Main results use five seeds (data generation and training), other studies three; we report mean and sample standard deviation and paired $t$-tests on seeds. Federated training uses 20 rounds of 5 local Adam steps (learning rate $10^{-2}$, 256 hyperedges per step). Experiments ran on two CPU cores without a GPU. The value-set size per attribute is at most two in all benchmarks.
 
 \paragraph{Reproducibility} The code, the experiment runner, the figure generator that produces every number in this paper from the result files, a Colab notebook and a Streamlit explorer with hypergraph projections of the anomalies are in the accompanying repository.
@@ -341,16 +614,16 @@ The pooled oracle scores 1 on every metric by definition and is the reference, n
 \label{sec:results}
 
 \subsection{RQ1: comparison with non-pooling alternatives}
-Table~\ref{tab:main} reports the main comparison at $B=512$. \name-\R{} obtains macro-F1 of \mainagenticR{} (Agentic), \mainxustollerR{} (XS-ABAC) and \mainamazonR{} (AMZ-Access). The strongest baseline in macro-F1 is on every benchmark a random forest trained on audited labels (\mainagenticbest, \mainxustollerbest{} and \mainamazonbest). The paired difference to \name-\R{} is $\mainagenticgain$ on Agentic ($p=\mainagenticp$) and $\mainamazongain$ on AMZ-Access ($p=\mainamazonp$). On XS-ABAC it is $\mainxustollergain$ ($p=\mainxustollerp$): at this sketch size \name-\R{} is on par with, not better than, a supervised model that was given 20\% of the oracle's labels.
+Table~\ref{tab:main} reports the main comparison at $B=512$, a middle setting, with one additional row for \name-\R{} at $B=4096$. At $B=512$, \name-\R{} obtains macro-F1 of \mainagenticR{} (Agentic), \mainxustollerR{} (XS-ABAC) and \mainamazonR{} (AMZ-Access). The strongest baseline is on every benchmark a random forest trained on audited labels (\mainagenticbest, \mainxustollerbest{} and \mainamazonbest). The paired difference to \name-\R{} is $\mainagenticgain$ on Agentic ($p=\mainagenticp$) and $\mainamazongain$ on AMZ-Access ($p=\mainamazonp$). On XS-ABAC it is $\mainxustollergain$ ($p=\mainxustollerp$): at this sketch size \name-\R{} is below a supervised model that was given 20\% of the oracle's labels. With $B=4096$, \name-\R{} reaches \mainagenticRbig, \mainxustollerRbig{} and \mainamazonRbig, ahead of the best baseline on all three benchmarks (paired differences $\mainagenticbiggain$, $\mainxustollerbiggain$ and $\mainamazonbiggain$; $p=\mainagenticbigp$, $\mainxustollerbigp$ and $\mainamazonbigp$).
 
-The XS-ABAC deficit is confined to x-gap (F1 \mainxustollerRgap). This benchmark has the densest overlap structure (x-conflict prevalence \prevxustollercon\%), so many foreign rules are partially compatible with each request, bins fill up, and collisions hide true gaps: recall of x-gap is \mainxustollerRgaprec{} at precision \mainxustollerRgapprec. The error disappears with a larger sketch; at $B=4096$ the rule decoder reaches macro-F1 \skxustollerruleBmmmmxcvi{} on XS-ABAC (Section~\ref{sec:sketch}).
+The XS-ABAC deficit at $B=512$ lies in x-gap (F1 \mainxustollerRgap) and x-redundancy (F1 \mainxustollerRred). This benchmark has the densest overlap structure (x-conflict prevalence \prevxustollercon\%), so many foreign rules are partially compatible with each request and each rule, bins fill up, and collisions hide true gaps and invent redundancies: recall of x-gap is \mainxustollerRgaprec{} at precision \mainxustollerRgapprec, and precision of x-redundancy is \mainxustollerRredprec{} at recall \mainxustollerRredrec. With $B=4096$ these F1 scores rise to \mainxustollerRbiggap{} and \mainxustollerRbigred.
 
-Three further observations explain the table. First, x-irrelevancy needs one number per entity and is decided exactly by the rule decoder; the baselines that receive liveness counts come close, those that do not fail. The learned decoder is unreliable on this task outside Agentic (F1 \mainxustollerLirr{} on XS-ABAC, \mainamazonLirr{} on AMZ-Access): there a domain owns only a handful of entities, so its pseudo-domain task contains almost no positive example. Second, for x-conflict and x-redundancy the federated baselines often score an F1 of zero while their AUPRC is not negligible: per-vertex counts say that foreign rules use the same values, not that one foreign rule is compatible on all attributes, so scores are weakly informative and rarely cross the decision threshold. Supplying audited labels does not repair this on Agentic and AMZ-Access; on XS-ABAC, where \prevxustollercon\% of the rules are in conflict, predicting the majority class already gives a high F1. Third, \name-L and \name-\R{} are indistinguishable on x-conflict, the rule decoder is clearly better on x-redundancy on Agentic and AMZ-Access, and the learned decoder is better on x-redundancy and x-gap on XS-ABAC, where the fixed threshold suffers most from collisions. In macro-F1 the rule decoder is ahead on all three benchmarks (paired $p=\mainagenticpRL$, $\mainxustollerpRL$ and $\mainamazonpRL$). In ranking quality the order reverses: \name-L has the highest macro-AUPRC of all methods on every benchmark (\mainagenticLap, \mainxustollerLap{} and \mainamazonLap, against \mainagenticRap, \mainxustollerRap{} and \mainamazonRap{} for the rule decoder, whose outputs are binary). The learned decoder is therefore useful for prioritising findings and for small sketches, and the rule decoder for decisions.
+Three further observations explain the table. First, x-irrelevancy needs one number per entity and is decided exactly by the rule decoder at any $B$ (Proposition~\ref{thm:irr}); baselines that receive liveness counts come close, those that do not fail. The learned decoder is unreliable on this task outside Agentic (F1 \mainxustollerLirr{} on XS-ABAC, \mainamazonLirr{} on AMZ-Access): there a domain owns only a handful of entities, so its pseudo-domain task contains almost no positive example. Second, for x-conflict and x-redundancy the federated baselines often score an F1 of zero while their AUPRC is not negligible: per-vertex counts say that foreign rules use the same values, not that one foreign rule is compatible on all attributes, so scores are weakly informative and rarely cross the decision threshold. Supplying audited labels does not repair this on Agentic and AMZ-Access; on XS-ABAC, where \prevxustollercon\% of the rules are in conflict, every method scores high on x-conflict because the positive class dominates. Third, at $B=512$ the learned decoder and the rule decoder are not significantly different in macro-F1 on Agentic and XS-ABAC (paired $p=\mainagenticpRL$ and $\mainxustollerpRL$), while the rule decoder is ahead on AMZ-Access, at the margin of significance ($p=\mainamazonpRL$). In ranking quality the learned decoder is ahead: among the methods at $B=512$ it has the highest macro-AUPRC on every benchmark (\mainagenticLap, \mainxustollerLap{} and \mainamazonLap, against \mainagenticRap, \mainxustollerRap{} and \mainamazonRap{} for the rule decoder, whose outputs are binary). The learned decoder is therefore useful for prioritising findings, and the rule decoder for decisions.
 
-Relative to the oracle, the error of \name-\R{} is one-sided, as Proposition~\ref{prop:sound} states: recall for x-conflict and x-redundancy is \mainagenticRconrec{} and \mainagenticRredrec{} on Agentic, \mainxustollerRconrec{} and \mainxustollerRredrec{} on XS-ABAC, \mainamazonRconrec{} and \mainamazonRredrec{} on AMZ-Access, with precision between \mainxustollerRredprec{} and \mainamazonRconprec; precision for x-gap is \mainagenticRgapprec{} on all three. Section~\ref{sec:sketch} shows that the residual error is a function of $B$.
+Relative to the oracle, the error of \name-\R{} is one-sided, as Propositions~\ref{thm:conf-complete}, \ref{thm:red} and \ref{thm:gap} state: recall for x-conflict and x-redundancy is \mainagenticRconrec{} and \mainagenticRredrec{} on Agentic, \mainxustollerRconrec{} and \mainxustollerRredrec{} on XS-ABAC, \mainamazonRconrec{} and \mainamazonRredrec{} on AMZ-Access, and precision of x-gap is \mainagenticRgapprec, \mainxustollerRgapprec{} and \mainamazonRgapprec. The residual error is a function of $B$ (Section~\ref{sec:sketch}).
 
 \begin{table}[t]
-\caption{Cross-domain anomaly detection without pooling policies: F1 per task, macro-F1 and macro-AUPRC (mean $\pm$ std over seeds). Best mean per column and benchmark in bold. $^\dagger$Trained on 20\% of the oracle labels, tested on the remaining 80\%.}
+\caption{Cross-domain anomaly detection without pooling policies: F1 per task, macro-F1 and macro-AUPRC (mean $\pm$ std over five seeds). All methods use $B=512$ where applicable; the last row of each block uses $B=4096$. Best mean per column and benchmark in bold. Tasks without positive instances in a run are excluded from that run's averages. $^\dagger$Trained on 20\% of the oracle labels, tested on the remaining 80\%.}
 \label{tab:main}
 \centering\scriptsize
 \setlength{\tabcolsep}{3pt}
@@ -412,12 +685,20 @@ Variant & Agentic & AMZ-Access & x-conf. & x-red. & x-irr. & x-gap\\
 \label{fig:sketch}
 \end{figure}
 
+\paragraph{Exposure} Fig.~\ref{fig:leakage}a reports, for every member of every scope, the fraction of the foreign rules it receives that are alone in their bin and therefore exposed (Section~\ref{sec:privacy}). The three benchmarks follow the uniform-hash prediction closely. Averaged over benchmarks, \lkallBlxiv\% of foreign rules are exposed at $B=64$, \lkallBdxii\% at $B=512$ and \lkallBmmmmxcvi\% at $B=4096$. Fig.~\ref{fig:leakage}b plots accuracy against exposure, one point per sketch size: accuracy rises only as exposure rises, and the settings that reproduce the oracle expose nearly every rule to the other members of its scope. This is the quantitative form of the trade-off discussed in Section~\ref{sec:privacy}, and the main limitation of the protocol for deployments in which members of a scope do not trust each other.
+
+\begin{figure}[t]
+\centering\includegraphics[width=\linewidth]{generated/fig_leakage}
+\caption{Exposure of rules to the other members of a scope. (a) Fraction of foreign rules that are alone in their bin (mean $\pm$ std over three seeds; dashed: prediction $E[(1-1/B)^{n-1}]$ for a uniform hash). (b) Macro-F1 of \name-\R{} against that fraction; each point is one sketch size, from $B=32$ (left) to $B=16384$ (right).}
+\label{fig:leakage}
+\end{figure}
+
 \paragraph{Noise}
 \label{sec:noise}
 Fig.~\ref{fig:noise} and Table~\ref{tab:noise} add Gaussian noise of standard deviation $\sigma_{\!n}$ to every context entry. Accuracy holds up to $\sigma_{\!n}\approx0.1$ and then falls: on Agentic \name-\R{} goes from \nzagenticRsApA{} without noise to \nzagenticRsApB{} at $0.1$, \nzagenticRsApD{} at $0.3$ and \nzagenticRsApF{} at $0.5$; on AMZ-Access from \nzamazonRsApA{} to \nzamazonRsApB, \nzamazonRsApD{} and \nzamazonRsApF. Training the learned decoder with the deployment noise does not make it more robust: it is below the rule decoder at every noise level on both benchmarks. The table translates $\sigma_{\!n}$ into the per-release $\varepsilon$ of the Gaussian mechanism at $\delta=10^{-5}$. The noise levels at which the method works correspond to $\varepsilon$ in the hundreds, which is not a meaningful guarantee; $\varepsilon<10$ would need $\sigma_{\!n}$ of about 2, far beyond the point where the conjunction is destroyed.
 
 \begin{figure}[t]
-\centering\includegraphics[width=.8\linewidth]{generated/fig_noise}
+\centering\includegraphics[width=\linewidth]{generated/fig_noise}
 \caption{Macro-F1 under additive Gaussian noise on the context (mean $\pm$ std over three seeds).}
 \label{fig:noise}
 \end{figure}
@@ -455,22 +736,65 @@ Fig.~\ref{fig:stream} replays ten steps in which 5\%, 10\% or 20\% of the rules 
 \label{fig:stream}
 \end{figure}
 
+\subsection{RQ6: naturally occurring anomalies}
+\label{sec:natural}
+Table~\ref{tab:natural} repeats the evaluation of \name-\R{} with all injection rates set to zero, so that every positive label is an anomaly that arose from the rule generators alone. Prevalence changes sharply: natural cross-domain redundancy is rare on Agentic (0.2\% of rules) but not on the derived benchmarks, and natural coverage gaps are common on all three. Recall of conflicts and redundancies stays at 1 and every reported gap is real (Section~\ref{sec:types}); what changes is precision, because a fixed false-positive rate weighs more against a rare positive class. On Agentic at $B=512$, for example, almost every flagged redundancy is a collision, which is why its macro-F1 is the lowest in the table. Accuracy increases with $B$ on all benchmarks, to \natagenticBsixteenk, \natxustollerBsixteenk{} and \natamazonBsixteenk{} at $B=16384$.
+
+\begin{table}[t]
+\caption{Naturally occurring anomalies only (no injection): prevalence per task and macro-F1 of \name-\R{} for three sketch sizes (mean $\pm$ std, three seeds).}
+\label{tab:natural}
+\centering\footnotesize
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+& \multicolumn{4}{c}{Prevalence (\%)} & \multicolumn{3}{c}{macro-F1}\\ \cmidrule(lr){2-5}\cmidrule(l){6-8}
+Benchmark & x-conf. & x-red. & x-irr. & x-gap & $B=512$ & $B=4096$ & $B=16384$\\
+\midrule
+\rawinput{generated/tab_natural}
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Case study: a healthcare scope}
+\label{sec:case}
+We close the evaluation with a concrete scope from the XS-ABAC benchmark (seed 0): \csnmembers{} domains share a scope with \csnrules{} rules over the healthcare application of Xu and Stoller~\cite{xu2015mining}, whose attribute data describe patients, wards, treating teams, health-record items and staff. Table~\ref{tab:case} shows two pairs of rules from different domains and what \name-\R{} reports for them.
+
+Rule \#\csconfauid{} of domain $D_{\csconfadom}$ lets the agent of patient oncPat2 read health-record items of patient oncPat1 in the oncology ward. Rule \#\csconfbuid{} of domain $D_{\csconfbdom}$ denies reading or adding items in the same ward to cardiology doctors of treating team oncTeam2. A request from a user who is both the agent of oncPat2 and such a doctor is permitted by one domain and denied by the other; neither domain can see it, and \name flags both rules at either sketch size. Rule \#\csredauid{} of $D_{\csredadom}$ permits adding notes for the cardiology team carTeam1 in the cardiology ward to the agent of oncPat2. Rule \#\csredbuid{} of $D_{\csredbdom}$ permits the same subjects on the same resources for adding items or notes, so \#\csredauid{} is redundant, and \name flags it. With $B=512$ it also flags \#\csredbuid{} as redundant, which is false: a collision in its bin satisfies the conjunction. With $B=4096$ the false alarm disappears. Over the whole world, precision of x-redundancy rises from \csredprecBdxii{} to \csredprecBmmmmxcvi{} between the two sketch sizes, and that of x-conflict from \csconfprecBdxii{} to \csconfprecBmmmmxcvi, with recall 1 throughout. These rules were generated from real attribute records, not written by the hospital; they show the kind of finding an auditor would receive, not a measured incidence in practice.
+
+\begin{table}[t]
+\caption{Case study (XS-ABAC, healthcare scope): two pairs of rules from different domains. Oracle: label of the pooled analysis; last two columns: \name-\R{} with $B=512$ and $B=4096$. Upper pair: x-conflict; lower pair: x-redundancy.}
+\label{tab:case}
+\centering\footnotesize
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lllp{7.2cm}ccc}
+\toprule
+Rule & Dom. & Effect & Conditions & Oracle & $B=512$ & $B=4096$\\
+\midrule
+\rawinput{generated/tab_case}
+\bottomrule
+\end{tabular}}
+\end{table}
+
 %% ============================================================================
 \section{Discussion and limitations}
 \label{sec:discussion}
 
-\paragraph{What the results support} Encoding the logic of rule overlap in the aggregation recovers most of the pooled analysis from additive, hashed vertex statistics, with errors on one known side, exact incremental updates, and communication proportional to the number of rules. Federated graph or hypergraph completion that shares per-vertex features without that logic does not.
+\paragraph{What the results support} Encoding the logic of rule overlap in the aggregation recovers the pooled analysis from additive, hashed vertex statistics, with errors on one known side, exact incremental updates, and communication proportional to the size of the policies. Federated graph or hypergraph completion that shares per-vertex features without that logic does not, even when given labels. How much of the pooled analysis is recovered is set by $B$, and so is how much of each domain's shared-scope policy the other members can read (Fig.~\ref{fig:leakage}).
 
-\paragraph{Learning plays a secondary role} The name of the approach reflects its starting point: a federated hypergraph neural model. The experiments led elsewhere. The learned decoder ranks findings better than the rule and can help when the sketch is small or the overlap structure is dense, but it does not improve decisions overall, its variance across runs is high, and the learned message channel adds nothing. We kept both in the paper and the code because the comparison is informative, and because a learned component may pay off in settings we did not test: soft attribute matching (hierarchies, numeric ranges), where compatibility is not set intersection, is the most plausible.
+\paragraph{Operational use} What a domain receives is, for each of its rules and each undecided request, a set of flags with the guarantees of Table~\ref{tab:guarantees}: ``no conflict'' and ``not redundant'' are certain, a reported gap is certain, and a reported conflict or redundancy is a finding to review that may be a collision. Under an XACML combining algorithm~\cite{oasis2013xacml} a conflict still yields one decision, but the algorithm that resolves a cross-domain conflict is usually chosen by none of the parties, so the conflict means that one domain's intent is overridden without its knowledge. We therefore report conflicts as findings, not as errors. Flags on a rule do not reveal which foreign rule caused them; after a finding, the domains concerned can compare the two rules bilaterally.
 
-\paragraph{Privacy} \name removes the need to hand policies to a third party and limits disclosure to shared scopes, but it is not a private protocol in the cryptographic or differential sense: large sketches expose the structure of individual foreign rules to scope members, and the noise needed for small $\varepsilon$ destroys the signal (Section~\ref{sec:noise}). Deployments should choose $B$ from the tolerable false-positive rate and the acceptable mixing $N_s/B$, use secure aggregation, and treat scope membership as a trust decision. Combining the hypergraph aggregation with multi-party computation of the per-bin minimum is the natural way to remove this leakage.
+\paragraph{Cost compared with cryptographic protocols} An exact private protocol must decide overlap or subsumption for every pair of rules of different domains: $O(n_dn_{d'})$ secure evaluations of an $A$-attribute conjunction per pair of domains, each interactive. Private set intersection~\cite{freedman2004efficient} does not apply directly, because overlap and subsumption are not set equality. \name uploads $\sum_r|e(r)|$ counts per domain and needs no interaction beyond aggregation; its price is the exposure measured in Section~\ref{sec:sketch}. We did not implement a cryptographic baseline. Computing only the per-bin minimum of Eq.~\eqref{eq:conj} under multi-party computation would combine the linear upload of \name with secrecy, and is the most direct way to remove the leakage.
 
-\paragraph{Validity} (i) The agentic benchmark is synthetic, and the domain structure of the derived benchmarks is imposed; no public multi-domain policy corpus exists to check against. (ii) Labels come from an oracle for the rule language of Section~\ref{sec:problem}: conjunctions of set-membership conditions, with at most two values per attribute in our data. Rule-combining algorithms, obligations, attribute hierarchies and relational constraints between subject and resource attributes (present in the original Xu--Stoller policies) are not modelled. (iii) The hash is assumed uniform; an adversarial member who knows the salt could craft collisions. (iv) The baselines are our re-implementations of ideas in a common framework, not the original systems. (v) Experiments are CPU-scale; the largest setting has 9{,}600 rules, a size at which the pooled oracle itself runs in under a second, so we make no claim about computational advantage. (vi) The learned decoder was trained for 100 local steps per domain; a longer schedule or a different architecture might change its ranking relative to the rule.
+\paragraph{Several hash functions do not help} Count-min sketches reduce collisions by using several independent hash functions~\cite{cormode2005countmin}. The analogue here keeps every guarantee of Section~\ref{sec:types}: with $k$ sketches of $B/k$ bins, flag a conflict or redundancy only if all $k$ sketches flag it, and a gap if any of them does. On seed~0 at a total of 512 bins this lowers macro-F1 on all three benchmarks (Agentic \mhagenticBdxiikb{}$\to$\mhagenticBdxiike, XS-ABAC \mhxustollerBdxiikb{}$\to$\mhxustollerBdxiike, AMZ-Access \mhamazonBdxiikb{}$\to$\mhamazonBdxiike{} for $k=1\to4$), and at 4096 bins it helps on two benchmarks and hurts on XS-ABAC, while exposing more rules, since a rule is exposed if it is alone in any of the $k$ sketches. One sketch of the full size is the better use of the budget.
+
+\paragraph{Learning plays a secondary role} The name of the approach reflects its starting point, a federated hypergraph neural model; the experiments led elsewhere. The learned decoder ranks findings better than the rule and can help when the sketch is small, but it does not improve decisions overall, its variance across runs is high, and the learned message channel adds nothing. We kept it in the paper and the code because the comparison is informative, and because learning may pay off where compatibility is not set intersection, for example with similarity-based matching of attribute values across vocabularies that the domains do not share.
+
+\paragraph{Validity} (i) The agentic benchmark is synthetic, and the domain structure of the derived benchmarks is imposed; no public multi-domain policy corpus exists to check against. Anomalies are defined over the attribute space, as in standard analysers. (ii) Labels come from an oracle for conjunctions of set-membership conditions. Hierarchies, ranges and negation reduce to this language (Proposition~\ref{prop:reduce}); relational conditions between subject and resource attributes (present in the original Xu--Stoller policies), combining algorithms and obligations are not modelled. (iii) The hash is modelled as uniform; Fig.~\ref{fig:leakage}a shows that the keyed hash behaves so, but a member who learns the key could craft collisions. (iv) The baselines are our re-implementations of ideas in a common framework, not the original systems; the random forests receive audited labels that no non-pooling method has. (v) Experiments are CPU-scale; the largest setting has 9{,}600 rules, a size at which the pooled oracle itself runs in under a second, so we make no claim about computational advantage. (vi) The learned decoder was trained for 100 local steps per domain; a longer schedule or a different architecture might change its ranking relative to the rule. (vii) Each seed draws a new world and a new training run; conclusions rest on differences that are consistent across seeds, and we do not rely on differences whose paired $p$-value exceeds 0.05.
 
 %% ============================================================================
 \section{Conclusion}
 \label{sec:conclusion}
-We formulated cross-domain policy anomaly analysis as a problem on a policy hypergraph with wildcard vertices and showed that scope-partitioned vertex aggregates of hashed hyperedge signatures, decoded conjunctively across attributes, reproduce the pooled analysis with one-sided error bounded in $1/B$, without any domain reading another's rules, and with exact sparse updates under churn. On two of three benchmarks the approach is far ahead of every baseline at 512 bins, on the third it matches a supervised baseline that uses audited labels, and with 4096 bins it reproduces the oracle on all three; a fixed decoder is better than a federated, label-free learned one at decisions and worse at ranking; and additive noise is not a viable privacy mechanism for it. Future work will replace the plain exchange of bin counts by secure computation of the conjunction, extend the rule language to hierarchies and relational constraints where a learned compatibility function is needed, and evaluate on policies collected from deployed agent platforms.
+We formulated cross-domain policy anomaly analysis on a policy hypergraph with wildcard vertices, where matching, overlap and subsumption are incidence conditions, and showed that scope-partitioned vertex aggregates of hashed hyperedge signatures, decoded conjunctively across attributes, recover the pooled analysis without any domain reading another's rules. For each anomaly type we gave a decision rule, proofs of one-sided error and of a false-positive bound in $1/B$, an algorithm and a worked example; policy churn is absorbed by exact sparse updates. With 4096 bins the rule decoder is ahead of every non-pooling baseline on all three benchmarks (macro-F1 \mainagenticRbig, \mainxustollerRbig{} and \mainamazonRbig); with 512 bins it is ahead on two and behind a supervised baseline given audited labels on the densest one. The parameter that buys accuracy also exposes rules: with 4096 bins, \lkallBmmmmxcvi\% of the rules in a shared scope can be reconstructed by the other members of that scope. A federated, label-free learned decoder ranks findings better but decides no better, several smaller sketches do not beat one large sketch, and additive noise is not a viable privacy mechanism for this design. The next steps are secure computation of the per-bin minimum, which would keep the linear upload and remove the exposure, support for relational conditions, and an evaluation on policies collected from deployed agent platforms.
 
 \section*{CRediT authorship contribution statement}
 \textbf{Mokhtar Sellami}: Conceptualization, Methodology, Software, Validation, Writing.

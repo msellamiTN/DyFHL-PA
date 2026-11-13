@@ -73,6 +73,19 @@ class Client:
             valid &= (Ha * idm * (1 - self.own[s:e])).sum(1) == 0   # only entities this domain really owns
         return y, valid
 
+    def irr_exact(self, H, own, alive_tot):
+        """Definition of x-irrelevancy, attribute by attribute: some entity attribute is constrained only by
+        entity values, none of them alive, and at least one of them owned by another domain."""
+        y = torch.zeros(H.shape[0], dtype=torch.bool)
+        for a in self.id_attrs:
+            s, e = self.slices[a]
+            Ha, idm = H[:, s:e], self.id_mask[s:e]
+            con = ((Ha * idm).sum(1) > 0) & ((Ha * (1 - idm)).sum(1) == 0)
+            dead = (Ha * idm * alive_tot[s:e]).amax(1) < 0.5
+            foreign = (Ha * idm * (1 - own[s:e])).sum(1) > 0
+            y |= con & dead & foreign
+        return y
+
     # -- synthetic pseudo-anomalies
     def augment(self, k):
         g, A = self.rng, self.geo.A
@@ -249,8 +262,10 @@ class Client:
             if cfg.gcn:
                 logits, (same, opp) = model(H, W, eff, isq, grp, C, irr, adj)
             else:   # decode in chunks to bound memory for large sketches
-                outs = [model(H[i:i + 256], W[i:i + 256], eff[i:i + 256], isq[i:i + 256], grp[i:i + 256], C, irr[i:i + 256])
-                        for i in range(0, len(eff), 256)]
+                ch = max(8, (256 * 512) // max(cfg.D, 512))     # keep the evidence tensors near 16 MB
+                prep = model.prepare(C)                          # extended context, built once
+                outs = [model(H[i:i + ch], W[i:i + ch], eff[i:i + ch], isq[i:i + ch], grp[i:i + ch], C, irr[i:i + ch],
+                              prep=prep) for i in range(0, len(eff), ch)]
                 logits = torch.cat([o[0] for o in outs])
                 same, opp = torch.cat([o[1][0] for o in outs]), torch.cat([o[1][1] for o in outs])
         return torch.sigmoid(logits), same, opp, irr
@@ -340,13 +355,15 @@ def evaluate(clients, models, labels, cfg: Config, seed=0, rule=False, ctx=None)
     P = np.zeros((len(R["eff"]), 3)); Pq = np.zeros(len(gap))
     for c, m, (C, al) in zip(clients, ms, ctx):
         prob, same, opp, irr = c.predict(m, C, al)
+        al = al
         n = c.n
         if rule:
             B = cfg.B if cfg.sketch else 1
             prob = torch.zeros_like(prob)
             prob[:, 0] = (opp[:, 0, :B].amax(1) > 0.5).float()
             prob[:, 1] = (same[:, 1, :B].amax(1) > 0.5).float()
-            prob[:, 2] = ((irr[:, 0] < 0.5) & (irr[:, 2] > 0)).float()
+            Hall = torch.cat([c.H, c.QH])
+            prob[:, 2] = c.irr_exact(Hall, c.own, c.alive * c.own + al).float()
             prob[:, 3] = (same[:, 0, :B].amax(1) < 0.5).float()
         P[c.ridx] = prob[:n, :3].numpy()
         Pq[c.qidx] = prob[n:, 3].numpy()

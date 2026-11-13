@@ -1,7 +1,7 @@
-Highlights (max 85 characters each)
+Highlights (each at most 85 characters)
 
-- Rules as hyperedges make cross-domain policy anomalies structural relations
-- Domains exchange hashed vertex aggregates instead of pooling their policies
-- No missed conflict or redundancy without noise; false positives bounded in 1/B
-- Policy churn is absorbed by exact sparse delta updates of the shared context
-- Label-free federated training; fixed decoder matches or beats the learned one
+- Cross-domain policy anomalies found without any domain reading another's rules
+- Rules as hyperedges: overlap and subsumption become vertex incidence conditions
+- Per anomaly type: decision rule, algorithm, proof, worked example and figure
+- No conflict or redundancy is missed; false alarms shrink as 1/B with sketch size
+- Measured trade-off: accuracy rises only as more rules are exposed to scope peers

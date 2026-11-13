@@ -32,10 +32,27 @@ def world(ds, seed, **kw):
     return World(get_source(ds), seed=seed, **kw)
 
 
+def resume(name, keys, complete):
+    """Rows of an interrupted run whose group (by keys) is complete; returns (rows, done-set)."""
+    p = f"{OUT}/{name}.json"
+    if not os.path.exists(p) or "--fresh" in sys.argv:
+        return [], set()
+    rows = json.load(open(p))
+    groups = {}
+    for r in rows:
+        groups.setdefault(tuple(r[k] for k in keys), []).append(r)
+    done = {g for g, rs in groups.items() if complete(rs)}
+    print("resuming", name, "with", len(done), "complete groups", flush=True)
+    return [r for g in done for r in groups[g]], done
+
+
 def main():
-    rows = []
+    n_methods = 3 + len(VARIANTS)
+    rows, done = resume("main", ("dataset", "seed"), lambda rs: len({r["method"] for r in rs}) == n_methods)
     for ds in DATASETS:
         for seed in SEEDS:
+            if (ds, seed) in done:
+                continue
             w = world(ds, seed); lab = w.labels()
             def add(method, r):
                 rows.append(dict(dataset=ds, seed=seed, method=method, **slim(r)))
@@ -72,13 +89,13 @@ def ablation():
 
 def sketch():
     rows = []
-    for ds in ["agentic", "amazon"]:
+    for ds in DATASETS:
         for seed in SEEDS3:
             w = world(ds, seed); lab = w.labels()
-            for B in [32, 64, 128, 256, 512, 1024, 2048, 4096]:
+            for B in [32, 64, 128, 256, 512, 1024, 2048, 4096, 16384]:
                 r = run(w, Config(seed=seed, h=0, B=B), labels=lab, rule=True)
                 rows.append(dict(dataset=ds, seed=seed, B=B, decoder="rule", **slim(r)))
-                if B <= 1024:
+                if B <= 1024 and ds != "xu_stoller":
                     r = run(w, Config(seed=seed, B=B), labels=lab)
                     rows.append(dict(dataset=ds, seed=seed, B=B, decoder="learned", **slim(r)))
                 print(ds, seed, B, flush=True)
@@ -127,15 +144,42 @@ def scale():
 
 
 def stream():
-    rows = []
+    rows, done = resume("stream", ("dataset", "seed", "churn"), lambda rs: len(rs) == 11)
     for ds in ["agentic", "amazon"]:
         for seed in SEEDS3:
             for churn in [0.05, 0.1, 0.2]:
+                if (ds, seed, churn) in done:
+                    continue
                 w = world(ds, seed)
                 for r in run_stream(w, Config(seed=seed, h=0), T=10, churn=churn):
                     rows.append(dict(dataset=ds, seed=seed, churn=churn, **r))
                 print("stream", ds, seed, churn, flush=True)
             save("stream", rows)
+
+
+def main_b4096():
+    """Rule decoder at B = 4096 on the worlds of the main comparison (added to main.json)."""
+    rows = [r for r in json.load(open(f"{OUT}/main.json")) if r["method"] != "DyFHL-PA-R (B=4096)"]
+    for ds in DATASETS:
+        for seed in SEEDS:
+            w = world(ds, seed); lab = w.labels()
+            r = run(w, Config(seed=seed, h=0, B=4096), labels=lab, rule=True)
+            rows.append(dict(dataset=ds, seed=seed, method="DyFHL-PA-R (B=4096)", **slim(r)))
+            print(ds, seed, "R4096", round(r["macro_f1"], 3), flush=True)
+    save("main", rows)
+
+
+def natural():
+    """No injected anomalies: every label is a naturally occurring one."""
+    rows = []
+    for ds in DATASETS:
+        for seed in SEEDS3:
+            w = world(ds, seed, p_conf=0.0, p_red=0.0, p_irr=0.0); lab = w.labels()
+            for B in [512, 4096, 16384]:
+                r = run(w, Config(seed=seed, h=0, B=B), labels=lab, rule=True)
+                rows.append(dict(dataset=ds, seed=seed, B=B, decoder="rule", **slim(r)))
+            print("natural", ds, seed, flush=True)
+            save("natural", rows)
 
 
 if __name__ == "__main__":

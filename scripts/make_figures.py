@@ -11,9 +11,13 @@ RES, OUT = "results", "paper/generated"
 os.makedirs(OUT, exist_ok=True)
 TASKS = ["x-conflict", "x-redundancy", "x-irrelevancy", "x-gap"]
 DS = {"agentic": "Agentic", "xu_stoller": "XS-ABAC", "amazon": "AMZ-Access"}
-plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False, "figure.dpi": 150,
-                     "pdf.fonttype": 42})
-C = {"rule": "#1f4e79", "learned": "#c0504d", "base": "#7f7f7f", "alt": "#e0a100", "g": "#3a7d44"}
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from dyfhl import figstyle as FS
+FS.apply()
+
+C = FS.METHOD
+DSC = {"agentic": FS.OI["blue"], "xu_stoller": FS.OI["orange"], "amazon": FS.OI["green"]}
+DSM = {"agentic": "o", "xu_stoller": "s", "amazon": "^"}
 macros = {}
 
 
@@ -64,11 +68,11 @@ def main_table():
     if df is None:
         return
     order = ["RF (20% audited labels)", "RF + count context (20% audited labels)", "Local-only", "FedGCN-clique",
-             "FedHGNN-count", "DyFHL-PA-L", "DyFHL-PA-R"]
+             "FedHGNN-count", "DyFHL-PA-L", "DyFHL-PA-R", "DyFHL-PA-R (B=4096)"]
     short = {"RF (20% audited labels)": "RF, local features$^\\dagger$", "RF + count context (20% audited labels)":
              "RF + count context$^\\dagger$", "Local-only": "Local-only", "FedGCN-clique": "FedGCN (clique exp.)",
              "FedHGNN-count": "FedHGNN (count completion)", "DyFHL-PA-L": "\\textbf{DyFHL-PA-L} (learned decoder)",
-             "DyFHL-PA-R": "\\textbf{DyFHL-PA-R} (rule decoder)"}
+             "DyFHL-PA-R": "\\textbf{DyFHL-PA-R} (rule decoder)", "DyFHL-PA-R (B=4096)": "\\textbf{DyFHL-PA-R}, $B=4096$"}
     cols = [t + "_f1" for t in TASKS] + ["macro_f1", "macro_ap"]
     lines = []
     for ds, dname in DS.items():
@@ -86,7 +90,7 @@ def main_table():
         lines.append("\\midrule")
         # numbers for the text
         key = ds.replace("_", "")
-        for m, tag in [("DyFHL-PA-R", "R"), ("DyFHL-PA-L", "L"), ("FedHGNN-count", "H"), ("Local-only", "Loc"),
+        for m, tag in [("DyFHL-PA-R", "R"), ("DyFHL-PA-R (B=4096)", "Rbig"), ("DyFHL-PA-L", "L"), ("FedHGNN-count", "H"), ("Local-only", "Loc"),
                        ("RF + count context (20% audited labels)", "RFc"), ("FedGCN-clique", "G")]:
             x = sub[sub.method == m]
             if not x.empty:
@@ -95,7 +99,7 @@ def main_table():
                     mac(f"main{key}{tag}{t[2:5]}", ms(x[t + '_f1'])[0])
                     mac(f"main{key}{tag}{t[2:5]}rec", ms(x[t + '_rec'])[0]); mac(f"main{key}{tag}{t[2:5]}prec", ms(x[t + '_prec'])[0])
         # paired test: rule decoder vs best baseline
-        base = [m for m in order if not m.startswith("DyFHL")]
+        base = [m for m in order if not m.startswith("DyFHL") and (sub.method == m).any()]
         bb = max(base, key=lambda m: sub[sub.method == m].macro_f1.mean())
         a = sub[sub.method == "DyFHL-PA-R"].sort_values("seed").macro_f1.values
         b = sub[sub.method == bb].sort_values("seed").macro_f1.values
@@ -105,6 +109,11 @@ def main_table():
             mac(f"main{key}p", (f"{p:.2f}" if p >= 0.01 else f"{p:.1e}".replace("e-0", "\\times10^{-").replace("e-", "\\times10^{-") + "}"))
             mac(f"main{key}gain", f"{a.mean() - b.mean():+.3f}")
             print(key, "best baseline:", bb)
+        a3 = sub[sub.method == "DyFHL-PA-R (B=4096)"].sort_values("seed").macro_f1.values
+        if len(a3) == len(b) and len(b) > 2:
+            p3 = stats.ttest_rel(a3, b).pvalue
+            mac(f"main{key}bigp", (f"{p3:.2f}" if p3 >= 0.01 else f"{p3:.1e}".replace("e-0", "\\times10^{-").replace("e-", "\\times10^{-") + "}"))
+            mac(f"main{key}biggain", f"{a3.mean() - b.mean():+.3f}")
         a2 = sub[sub.method == "DyFHL-PA-L"].sort_values("seed").macro_f1.values
         if len(a2) == len(a) and len(a) > 2:
             mac(f"main{key}pRL", f"{stats.ttest_rel(a, a2).pvalue:.3f}")
@@ -148,31 +157,47 @@ def ablation_tables():
         mac(f"abl{group[:3]}ncols", str(len(dss)))
 
 
+# ----------------------------------------------------------------------------- plotting helpers
+def band(ax, x, m, sd, color, marker=None, ls="-", label=None, z=3):
+    x, m, sd = np.asarray(x, float), np.asarray(m, float), np.nan_to_num(np.asarray(sd, float))
+    ax.fill_between(x, m - sd, m + sd, color=color, alpha=0.18, lw=0, zorder=z - 1)
+    return ax.plot(x, m, color=color, marker=marker, ls=ls, label=label, zorder=z, markeredgecolor="white")[0]
+
+
+def panel(ax, label):
+    ax.set_title(label, loc="left", fontsize=FS.BASE_PT, pad=2.5)
+    ax.grid(True, axis="y", alpha=0.6)
+
+
+def log2_axis(ax, ticks=(32, 128, 512, 2048, 8192)):
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(list(ticks)); ax.set_xticklabels([str(t) for t in ticks]); ax.minorticks_off()
+
+
+def f1_axis(ax, label=True):
+    ax.set_ylim(0, 1.03); ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+    if label:
+        ax.set_ylabel("macro-F1")
+
+
 # ----------------------------------------------------------------------------- sketch size
 def sketch_fig():
     df = load("sketch")
     if df is None:
         return
-    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.4))
-    for ax, ds in zip(axes, ["agentic", "amazon"]):
-        for dec, col, mk in [("rule", C["rule"], "o"), ("learned", C["learned"], "s")]:
+    dss = [d for d in ["agentic", "xu_stoller", "amazon"] if (df.dataset == d).any()]
+    fig, axes = plt.subplots(1, len(dss), figsize=FS.figsize("onehalf", 52), sharey=True, layout="constrained")
+    for k, (ax, ds) in enumerate(zip(axes, dss)):
+        for dec, col, mk, lab in [("rule", C["rule"], "o", "DyFHL-PA-R (rule decoder)"),
+                                  ("learned", C["learned"], "s", "DyFHL-PA-L (learned decoder)")]:
             g = df[(df.dataset == ds) & (df.decoder == dec)].groupby("B").macro_f1.agg(["mean", "std"])
-            ax.errorbar(g.index, g["mean"], g["std"].fillna(0), color=col, marker=mk, ms=3.5, lw=1.2, capsize=2,
-                        label=f"DyFHL-PA-{'R' if dec == 'rule' else 'L'}")
-        ax.set_xscale("log", base=2); ax.set_xlabel("sketch bins $B$"); ax.set_title(DS[ds], fontsize=9)
-        ax.set_ylim(0, 1.02); ax.grid(alpha=.25)
-    axes[0].set_ylabel("macro-F1"); axes[0].legend(frameon=False, fontsize=7.5, loc="lower right")
-    ax = axes[2]
-    for ds, ls in [("agentic", "-"), ("amazon", "--")]:
-        g = df[(df.dataset == ds) & (df.decoder == "rule")].groupby("B")
-        ax.plot(g.context_nnz_bytes.mean().index, g.context_nnz_bytes.mean() / 1024, ls, color=C["rule"], marker="o", ms=3,
-                label=f"non-zeros, {DS[ds]}")
-        ax.plot(g.context_bytes.mean().index, g.context_bytes.mean() / 1024, ls, color=C["base"], marker="^", ms=3,
-                label=f"dense, {DS[ds]}")
-    ax.set_xscale("log", base=2); ax.set_yscale("log"); ax.set_xlabel("sketch bins $B$"); ax.set_ylabel("upload per domain (kB)")
-    ax.legend(frameon=False, fontsize=5.5, loc="upper left", ncol=1, handlelength=1.5); ax.grid(alpha=.25); ax.set_title("Communication", fontsize=9)
-    ax.set_ylim(top=ax.get_ylim()[1] * 300)
-    fig.tight_layout(); fig.savefig(f"{OUT}/fig_sketch.pdf"); plt.close(fig)
+            if len(g):
+                band(ax, g.index, g["mean"], g["std"], col, mk, label=lab)
+        log2_axis(ax); f1_axis(ax, k == 0); ax.set_xlabel("sketch bins $B$")
+        panel(ax, f"({'abc'[k]}) {DS[ds]}")
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="outside upper center", ncol=2)
+    FS.save(fig, f"{OUT}/fig_sketch"); plt.close(fig)
     for ds in ["agentic", "amazon", "xu_stoller"]:
         for dec in ["rule", "learned"]:
             g = df[(df.dataset == ds) & (df.decoder == dec)].groupby("B").macro_f1.mean()
@@ -181,9 +206,10 @@ def sketch_fig():
         g = df[(df.dataset == ds) & (df.decoder == "rule")].groupby("B")
         for B in g.context_nnz_bytes.mean().index:
             mac(f"sk{ds}bytesB{num(B)}", f"{g.context_nnz_bytes.mean()[B] / 1024:.0f}")
+            mac(f"sk{ds}densekB{num(B)}", f"{g.context_bytes.mean()[B] / 1024:.0f}")
         for t in TASKS:
             gg = df[(df.dataset == ds) & (df.decoder == "rule")].groupby("B")
-            for B in [512, 4096]:
+            for B in [512, 4096, 16384]:
                 if B in gg[t + "_prec"].mean().index:
                     mac(f"sk{ds}{t[2:5]}fB{num(B)}", f"{gg[t + '_f1'].mean()[B]:.3f}")
                     mac(f"sk{ds}{t[2:5]}precB{num(B)}", f"{gg[t + '_prec'].mean()[B]:.3f}")
@@ -191,8 +217,43 @@ def sketch_fig():
 
 
 def num(n):
-    words = {32: "xxxii", 64: "lxiv", 128: "cxxviii", 256: "cclvi", 512: "dxii", 1024: "mxxiv", 2048: "mmxlviii", 4096: "mmmmxcvi"}
+    words = {32: "xxxii", 64: "lxiv", 128: "cxxviii", 256: "cclvi", 512: "dxii", 1024: "mxxiv", 2048: "mmxlviii",
+             4096: "mmmmxcvi", 16384: "sixteenk"}
     return words.get(int(n), str(n))
+
+
+# ----------------------------------------------------------------------------- exposure (privacy) vs utility
+def leakage_fig():
+    lk, sk = load("leakage"), load("sketch")
+    if lk is None or sk is None:
+        return
+    fig, axes = plt.subplots(1, 2, figsize=FS.figsize("onehalf", 52), layout="constrained")
+    ax = axes[0]
+    for ds in ["agentic", "xu_stoller", "amazon"]:
+        g = lk[lk.dataset == ds].groupby("B")[["exposed", "predicted"]].agg(["mean", "std"])
+        band(ax, g.index, g[("exposed", "mean")], g[("exposed", "std")], DSC[ds], DSM[ds], label=DS[ds])
+    g = lk.groupby("B").predicted.mean()
+    ax.plot(g.index, g.values, color="black", ls=(0, (2, 1.5)), lw=0.8, label="uniform-hash prediction", zorder=4)
+    log2_axis(ax); ax.set_ylim(0, 1.03); ax.set_xlabel("sketch bins $B$"); ax.set_ylabel("foreign rules exposed")
+    panel(ax, "(a) rules alone in their bin")
+    ax.legend(loc="lower right", handlelength=1.6)
+    ax = axes[1]
+    m = sk[sk.decoder == "rule"].groupby(["dataset", "B"]).macro_f1.mean()
+    e = lk.groupby(["dataset", "B"]).exposed.mean()
+    for ds in ["agentic", "xu_stoller", "amazon"]:
+        if ds not in m.index.get_level_values(0) or ds not in e.index.get_level_values(0):
+            continue
+        Bs = sorted(set(m.loc[ds].index) & set(e.loc[ds].index))
+        x, y = [e.loc[(ds, B)] for B in Bs], [m.loc[(ds, B)] for B in Bs]
+        ax.plot(x, y, color=DSC[ds], marker=DSM[ds], markeredgecolor="white", label=DS[ds])
+    ax.set_xlim(0, 1.03); f1_axis(ax); ax.set_xlabel("foreign rules exposed")
+    panel(ax, "(b) accuracy against exposure")
+    FS.save(fig, f"{OUT}/fig_leakage"); plt.close(fig)
+    for ds in ["agentic", "xu_stoller", "amazon"]:
+        for B in sorted(lk.B.unique()):
+            mac(f"lk{ds}B{num(B)}", f"{100 * e.loc[(ds, B)]:.0f}")
+    for B in sorted(lk.B.unique()):
+        mac(f"lkallB{num(B)}", f"{100 * lk[lk.B == B].exposed.mean():.0f}")
 
 
 # ----------------------------------------------------------------------------- noise
@@ -200,17 +261,28 @@ def noise_fig():
     df = load("noise")
     if df is None:
         return
-    fig, axes = plt.subplots(1, 2, figsize=(5.6, 2.4), sharey=True)
-    style = {"rule": (C["rule"], "o", "DyFHL-PA-R"), "learned (noise-aware)": (C["learned"], "s", "DyFHL-PA-L, noise-aware")}
-    for ax, ds in zip(axes, ["agentic", "amazon"]):
+    delta = 1e-5
+    style = {"rule": (C["rule"], "o", "DyFHL-PA-R (rule decoder)"),
+             "learned (noise-aware)": (C["learned"], "s", "DyFHL-PA-L, trained with the same noise")}
+    fig, axes = plt.subplots(1, 2, figsize=FS.figsize("onehalf", 56), sharey=True, layout="constrained")
+    for k, (ax, ds) in enumerate(zip(axes, ["agentic", "amazon"])):
         for dec, (col, mk, lab) in style.items():
             g = df[(df.dataset == ds) & (df.decoder == dec)].groupby("sigma").macro_f1.agg(["mean", "std"])
             if len(g):
-                ax.errorbar(g.index, g["mean"], g["std"].fillna(0), color=col, marker=mk, ms=3.5, lw=1.2, capsize=2, label=lab)
-        ax.set_xlabel("context noise $\\sigma$"); ax.set_title(DS[ds], fontsize=9); ax.grid(alpha=.25); ax.set_ylim(0, 1.02)
-    axes[0].set_ylabel("macro-F1"); axes[0].legend(frameon=False, fontsize=7)
-    fig.tight_layout(); fig.savefig(f"{OUT}/fig_noise.pdf"); plt.close(fig)
-    delta = 1e-5
+                band(ax, g.index, g["mean"], g["std"], col, mk, label=lab)
+        f1_axis(ax, k == 0); ax.set_xlabel("noise standard deviation")
+        ax.set_xlim(-0.01, 0.51)
+        A = int(df[df.dataset == ds].A.iloc[0])
+        top = ax.secondary_xaxis("top")
+        ts = [0.1, 0.2, 0.3, 0.5]
+        top.set_ticks(ts); top.set_xticklabels([f"{np.sqrt(2 * A) * np.sqrt(2 * np.log(1.25 / delta)) / t:.0f}" for t in ts])
+        top.set_xlabel("rule-level $\\varepsilon$ per release", fontsize=FS.SMALL_PT, labelpad=2)
+        top.tick_params(labelsize=FS.SMALL_PT, length=2)
+        ax.text(0.98, 0.95, f"({'ab'[k]}) {DS[ds]}", transform=ax.transAxes, ha="right", va="top", fontsize=FS.BASE_PT)
+        ax.grid(True, axis="y", alpha=0.6)
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="outside lower center", ncol=2)
+    FS.save(fig, f"{OUT}/fig_noise"); plt.close(fig)
     lines = []
     for sg in sorted(df.sigma.unique()):
         row = [f"{sg:g}"]
@@ -231,24 +303,31 @@ def scale_fig():
     df = load("scale")
     if df is None:
         return
-    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.4))
     a = df[df.B_mode.isin(["fixed", "scaled"])].copy()
     a["total"] = a.n_rules * a.K
+    fig, axes = plt.subplots(1, 3, figsize=FS.figsize("onehalf", 54), layout="constrained")
     g = a[a.B_mode == "fixed"].groupby("total")
-    axes[0].plot(g.oracle_s.mean().index, g.oracle_s.mean(), color=C["base"], marker="^", ms=3.5, label="pooled exact oracle")
-    for mode, col, lab in [("fixed", C["rule"], "DyFHL-PA-R, $B{=}512$"), ("scaled", C["g"], "DyFHL-PA-R, $B{=}4n$")]:
+    ax = axes[0]
+    ax.plot(g.oracle_s.mean().index, g.oracle_s.mean(), color=C["base"], marker="^", markeredgecolor="white",
+            label="pooled exact oracle")
+    sty = [("fixed", C["rule"], "o", "DyFHL-PA-R, B = 512"), ("scaled", C["g"], "s", "DyFHL-PA-R, B = 4 × rules per domain")]
+    for mode, col, mk, lab in sty:
         g = a[a.B_mode == mode].groupby("total")
-        axes[0].plot(g.dyfhl_s.mean().index, g.dyfhl_s.mean(), color=col, marker="o", ms=3.5, label=lab)
-        axes[1].errorbar(g.macro_f1.mean().index, g.macro_f1.mean(), g.macro_f1.std().fillna(0), color=col, marker="o", ms=3.5,
-                         capsize=2, label=lab)
-    axes[0].set_xscale("log"); axes[0].set_yscale("log"); axes[0].set_xlabel("rules in shared scopes"); axes[0].set_ylabel("seconds")
-    axes[0].legend(frameon=False, fontsize=6.5); axes[0].grid(alpha=.25)
-    axes[1].set_xscale("log"); axes[1].set_xlabel("rules in shared scopes"); axes[1].set_ylabel("macro-F1"); axes[1].set_ylim(0, 1.02)
-    axes[1].legend(frameon=False, fontsize=6.5); axes[1].grid(alpha=.25)
+        ax.plot(g.dyfhl_s.mean().index, g.dyfhl_s.mean(), color=col, marker=mk, markeredgecolor="white", label=lab)
+        band(axes[1], g.macro_f1.mean().index, g.macro_f1.mean(), g.macro_f1.std(), col, mk)
+    ax.set_xscale("log"); ax.set_yscale("log"); ax.set_xlabel("rules in shared scopes"); ax.set_ylabel("wall-clock time (s)")
+    yt = [t for t in (0.001, 0.01, 0.1, 1, 10, 100) if a[["oracle_s", "dyfhl_s"]].min().min() / 3 <= t <= a[["oracle_s", "dyfhl_s"]].max().max() * 3]
+    ax.set_yticks(yt); ax.set_yticklabels([f"{t:g}" for t in yt]); ax.minorticks_off()
+    panel(ax, "(a) analysis time"); ax.grid(True, which="major", axis="y", alpha=0.6)
+    axes[1].set_xscale("log"); axes[1].set_xlabel("rules in shared scopes"); f1_axis(axes[1]); panel(axes[1], "(b) accuracy vs. rules")
+    for axx in axes[:2]:
+        axx.set_xticks([600, 1200, 2400, 4800, 9600]); axx.set_xticklabels(["600", "1.2k", "2.4k", "4.8k", "9.6k"]); axx.minorticks_off()
     k = df[df.B_mode == "domains"].groupby("K").macro_f1.agg(["mean", "std"])
-    axes[2].errorbar(k.index, k["mean"], k["std"].fillna(0), color=C["rule"], marker="o", ms=3.5, capsize=2)
-    axes[2].set_xlabel("domains $K$"); axes[2].set_ylabel("macro-F1"); axes[2].set_ylim(0, 1.02); axes[2].grid(alpha=.25)
-    fig.tight_layout(); fig.savefig(f"{OUT}/fig_scale.pdf"); plt.close(fig)
+    band(axes[2], k.index, k["mean"], k["std"], C["rule"], "o")
+    axes[2].set_xticks(list(k.index)); axes[2].set_xlabel("domains $K$"); f1_axis(axes[2]); panel(axes[2], "(c) accuracy vs. domains")
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="outside upper center", ncol=3)
+    FS.save(fig, f"{OUT}/fig_scale"); plt.close(fig)
     for mode in ["fixed", "scaled"]:
         g = a[a.B_mode == mode].groupby("total")
         for tot in g.macro_f1.mean().index:
@@ -269,36 +348,103 @@ def stream_fig():
     df = load("stream")
     if df is None:
         return
-    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.4))
-    for ax, ds in zip(axes, ["agentic", "amazon"]):
-        for churn, ls in [(0.05, ":"), (0.1, "--"), (0.2, "-")]:
+    from matplotlib.lines import Line2D
+    LS = {0.05: (0, (1.0, 1.2)), 0.1: (0, (3.5, 1.5)), 0.2: "-"}
+    fig, axes = plt.subplots(1, 3, figsize=FS.figsize("onehalf", 56), layout="constrained",
+                             gridspec_kw={"width_ratios": [1, 1, 0.85]})
+    for k, (ax, ds) in enumerate(zip(axes, ["agentic", "amazon"])):
+        if not (df.dataset == ds).any():
+            continue
+        for churn, ls in LS.items():
             g = df[(df.dataset == ds) & (df.churn == churn)].groupby("t")
-            ax.plot(g.f1_delta.mean().index, g.f1_delta.mean(), ls, color=C["rule"], lw=1.3, label=f"delta, churn {churn:g}")
-            ax.plot(g.f1_stale.mean().index, g.f1_stale.mean(), ls, color=C["learned"], lw=1.3, label=f"stale, churn {churn:g}")
-        ax.set_xlabel("time step"); ax.set_title(DS[ds], fontsize=9); ax.grid(alpha=.25); ax.set_ylim(0, 1.02)
-    axes[0].set_ylabel("macro-F1"); axes[0].legend(frameon=False, fontsize=6, ncol=2, loc="lower left")
+            ax.plot(g.f1_delta.mean().index, g.f1_delta.mean(), color=C["rule"], ls=ls)
+            ax.plot(g.f1_stale.mean().index, g.f1_stale.mean(), color=C["learned"], ls=ls)
+        ax.set_xlabel("time step"); ax.set_xticks([0, 2, 4, 6, 8, 10]); f1_axis(ax, k == 0)
+        panel(ax, f"({'ab'[k]}) {DS[ds]}")
     d = df[df.t > 0].groupby(["dataset", "churn"])[["bytes_delta", "bytes_full"]].mean()
     x = np.arange(3); wdt = 0.38
+    ax = axes[2]
     for i, ds in enumerate(["agentic", "amazon"]):
+        if ds not in d.index.get_level_values(0):
+            continue
         r = (d.loc[ds].bytes_delta / d.loc[ds].bytes_full).values
-        axes[2].bar(x + (i - .5) * wdt, r, wdt, color=[C["rule"], C["g"]][i], label=DS[ds])
+        ax.bar(x + (i - .5) * wdt, r, wdt, color=DSC[ds], edgecolor="white", lw=0.4, label=DS[ds])
         for c, v in zip([0.05, 0.1, 0.2], r):
             mac(f"st{ds}ratio{str(c).replace('.', 'p')}", f"{100 * v:.0f}")
-    axes[2].set_xticks(x); axes[2].set_xticklabels(["5%", "10%", "20%"]); axes[2].set_xlabel("churn per step")
-    axes[2].set_ylabel("delta / full upload"); axes[2].legend(frameon=False, fontsize=7); axes[2].grid(alpha=.25, axis="y")
-    fig.tight_layout(); fig.savefig(f"{OUT}/fig_stream.pdf"); plt.close(fig)
+    ax.set_xticks(x); ax.set_xticklabels(["5%", "10%", "20%"]); ax.set_xlabel("rules replaced per step")
+    ax.set_ylabel("delta size / full upload"); ax.set_ylim(0, 0.5); ax.legend(loc="upper left")
+    panel(ax, "(c) upload size")
+    hs = [Line2D([0], [0], color=C["rule"], label="delta-maintained context"),
+          Line2D([0], [0], color=C["learned"], label="stale context")] + \
+         [Line2D([0], [0], color="#555555", ls=ls, label=f"{int(100 * c)}% churn") for c, ls in LS.items()]
+    fig.legend(handles=hs, loc="outside upper center", ncol=5, handlelength=2.2, columnspacing=1.2)
+    FS.save(fig, f"{OUT}/fig_stream"); plt.close(fig)
     mac("stmaxerr", f"{df.max_abs_err.max():.0e}" if df.max_abs_err.max() > 0 else "0")
     last = df[df.t == df.t.max()]
     for ds in ["agentic", "amazon"]:
         for c in [0.05, 0.1, 0.2]:
             x = last[(last.dataset == ds) & (last.churn == c)]
+            if x.empty:
+                continue
             mac(f"st{ds}delta{str(c).replace('.', 'p')}", f"{x.f1_delta.mean():.3f}")
             mac(f"st{ds}stale{str(c).replace('.', 'p')}", f"{x.f1_stale.mean():.3f}")
     mac("sttdelta", f"{1000 * df[df.t > 0].time_delta.mean():.1f}"); mac("sttfull", f"{1000 * df[df.t > 0].time_full.mean():.1f}")
 
 
+# ----------------------------------------------------------------------------- case study and natural anomalies
+def case_table():
+    p = f"{RES}/case_study.json"
+    if not os.path.exists(p):
+        return
+    d = json.load(open(p))
+    yes = lambda b: "\\checkmark" if b else "--"
+    lines = []
+    for task, tag in (("x-conflict", "conf"), ("x-redundancy", "red")):
+        for k, x in enumerate(d.get(task, [])):
+            conds = "; ".join(c.split(": ", 1)[1].replace("=", " = ") if ": " in c and c.split(": ")[0] not in ("action", "app")
+                              else c.replace(": ", " = ") for c in x["conds"].split("; ") if not c.startswith("app"))
+            conds = conds.replace("_", "\\_")
+            o, f5, f4 = x["oracle"][task], x["flags_B512"][task], x["flags_B4096"][task]
+            lines.append(f"\\#{x['uid']} & $D_{x['dom']}$ & {x['effect']} & \\footnotesize {conds} & {yes(o)} & {yes(f5)} & {yes(f4)}\\\\")
+            mac(f"cs{tag}{'ab'[k]}uid", str(x["uid"])); mac(f"cs{tag}{'ab'[k]}dom", str(x["dom"]))
+        lines.append("\\midrule")
+    open(f"{OUT}/tab_case.tex", "w").write("\n".join(lines[:-1]) + "\n")
+    for B in (512, 4096):
+        for t, tag in (("x-conflict", "conf"), ("x-redundancy", "red")):
+            for m in ("prec", "rec", "f1"):
+                mac(f"cs{tag}{m}B{num(B)}", f"{d[f'summary_B{B}'][t][m]:.3f}")
+    mac("csnrules", str(d["n_rules_scope"])); mac("csnmembers", str(len(d["scope_members"])))
+
+
+def natural_table():
+    df = load("natural")
+    if df is None:
+        return
+    lines = []
+    for ds in ["agentic", "xu_stoller", "amazon"]:
+        sub = df[df.dataset == ds]
+        if sub.empty:
+            continue
+        prev = sub[sub.B == 512]
+        row = [DS[ds]] + [f"{100 * prev[t + '_pos'].mean():.1f}" for t in TASKS]
+        for B in (512, 4096, 16384):
+            x = sub[sub.B == B]
+            row.append(cell(x.macro_f1))
+            mac(f"nat{ds.replace('_', '')}B{num(B)}", ms(x.macro_f1)[0])
+        lines.append(" & ".join(row) + "\\\\")
+    open(f"{OUT}/tab_natural.tex", "w").write("\n".join(lines) + "\n")
+
+
+def multihash_macros():
+    p = f"{RES}/multihash.json"
+    if not os.path.exists(p):
+        return
+    for r in json.load(open(p)):
+        mac(f"mh{r['dataset'].replace('_', '')}B{num(r['B'])}k{'abcde'[r['k']]}", f"{r['macro_f1']:.3f}")
+
+
 if __name__ == "__main__":
-    for f in (main_table, ablation_tables, sketch_fig, noise_fig, scale_fig, stream_fig):
+    for f in (main_table, ablation_tables, sketch_fig, leakage_fig, noise_fig, scale_fig, stream_fig, case_table, natural_table, multihash_macros):
         f()
     with open(f"{OUT}/numbers.tex", "w") as fh:
         for k, v in sorted(macros.items()):
