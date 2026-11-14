@@ -1,4 +1,4 @@
-# Status — version 2 (work in progress, 2026-11-14 01:20)
+# Status — version 2 (complete, 2026-11-14)
 
 Target journal: **Computers & Security** (Elsevier). Manuscript: `paper/main.tex` → `paper/main.pdf`.
 Pre-submission review (three simulated referees) and point-by-point responses: `paper/response.tex` → `paper/response.pdf`.
@@ -20,18 +20,17 @@ Pre-submission review (three simulated referees) and point-by-point responses: `
   >= 6 pt subscripts at printed size, 0.3–1.3 pt lines); `scripts/check_figures.py` verifies them.
   Production files (PDF, EPS, 1000 dpi TIFF) in `paper/figures_submission/`.
 
-## Still to do (resume here)
-1. Finish the two interrupted studies (both resume row by row; run each in chunks of < 10 min):
-   ```
-   DYFHL_THREADS=1 timeout 560 python3 scripts/run_experiments.py ablation   # 80 of 81 rows done (1 left)
-   DYFHL_THREADS=1 timeout 560 python3 scripts/run_experiments.py noise      # 37 of 72 rows done (AMZ-Access left)
-   python3 scripts/fix_irrelevancy.py && python3 scripts/make_figures.py && python3 scripts/check_figures.py
-   ```
-2. Rewrite two paragraphs whose wording predates the re-run: **RQ2 ablations** (Section "RQ2: ablations")
-   and **Noise** (Section "RQ3", paragraph "Noise"). All numbers are macros and already update; only the
-   qualitative sentences must be checked against `paper/generated/tab_abl_*.tex` and `tab_noise.tex`.
-3. Recompile (`pdflatex main; bibtex main; pdflatex main ×2; pdflatex response ×2`) and re-read the PDFs.
-4. Decide on the title (the learned decoder is optional; see `paper/response.pdf`, Part III).
+## Completed on 2026-11-14
+- Ablation (81/81 rows) and noise (72/72 rows) studies finished on the corrected hash.
+- Ablation and noise paragraphs rewritten to the final numbers; response letter updated to match.
+- Both PDFs compile without errors or overfull lines; no pending values remain; all 11 figures pass
+  `scripts/check_figures.py`; 6 unit tests pass.
+
+## Open decisions for the author
+1. Title: the learned decoder is optional (see `paper/response.pdf`, Part III); consider a title that
+   names the method rather than "learning".
+2. Author list, affiliations, CRediT statement and the generative-AI declaration.
+3. Final proofreading of `paper/main.pdf` before submission to Computers & Security.
 
 ## Main results after the re-run (5 seeds, macro-F1)
 | | Agentic | XS-ABAC | AMZ-Access |

@@ -114,10 +114,14 @@ def sketch():
 
 def noise():
     """Row-level resumable."""
-    rows = [r for r in load_rows("noise") if r.get("salted")]
+    out = os.environ.get("NOISE_OUT", "noise")                 # separate files let seeds run in parallel
+    only = [int(x) for x in os.environ.get("NOISE_SEEDS", "").split(",") if x != ""]
+    rows = [r for r in load_rows(out) if r.get("salted")]
     have = {(r["dataset"], r["seed"], r["sigma"], r["decoder"]) for r in rows}
+    if out != "noise":
+        have |= {(r["dataset"], r["seed"], r["sigma"], r["decoder"]) for r in load_rows("noise") if r.get("salted")}
     for ds in ["agentic", "amazon"]:
-        for seed in SEEDS3:
+        for seed in (only or SEEDS3):
             todo = [(sg, dec) for sg in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5] for dec in ("rule", "learned (noise-aware)")
                     if (ds, seed, sg, dec) not in have]
             if not todo:
@@ -129,7 +133,7 @@ def noise():
                 else:
                     r = run(w, Config(seed=seed, sigma=sg), labels=lab)
                 rows.append(dict(dataset=ds, seed=seed, sigma=sg, decoder=dec, A=w.A, salted=True, **slim(r)))
-                save("noise", rows)
+                save(out, rows)
                 print(ds, seed, sg, dec, round(r["macro_f1"], 3), flush=True)
 
 

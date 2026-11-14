@@ -172,7 +172,7 @@ The reviewers agree that the problem, detecting anomalies between access-control
 \resp Each seed draws a new world (rules, scopes, hash salt) and a new training run, so the standard deviations include both sources of variation, which is the variation a user would see. The main comparison uses five seeds and paired $t$-tests; we no longer rest any conclusion on a difference whose $p$-value is above 0.05, and we report effect sizes as mean differences.
 
 \concern{W3.6}{Short training of the learned decoder.}
-\resp This is listed as a threat to validity in Section~\ref{sec:discussion}. The learning ablation (Table~\ref{tab:abl_l}) shows that the components that matter (pseudo-anomaly augmentation, averaging) behave as expected at this budget; we did not tune the budget further because the rule decoder, which needs no training, is better at decisions in every setting we tested.
+\resp This is listed as a threat to validity in Section~\ref{sec:discussion}. The learning ablation (Table~\ref{tab:abl_l}) shows that the components that matter behave as expected at this budget: without pseudo-anomaly augmentation x-redundancy is not learned at all, and federated averaging improves Agentic over purely local training; we did not tune the budget further because the rule decoder, which needs no training, is better at decisions in every setting we tested.
 
 \section*{Part III. Concerns that the revision does not remove}
 A second reading of version~2 by the same three perspectives leaves the following points open. We state them so that the submission does not overclaim.
