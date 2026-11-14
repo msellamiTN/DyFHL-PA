@@ -65,26 +65,36 @@ def main():
             save("main", rows)
 
 
+def load_rows(name):
+    p = f"{OUT}/{name}.json"
+    return json.load(open(p)) if os.path.exists(p) else []
+
+
 def ablation():
-    rows = []
+    """Row-level resumable: every finished (dataset, seed, group, variant) is saved at once."""
     struct = {"full": {}, "- scope partition": dict(scope_part=False), "- conjunctive pooling": dict(conj=False),
               "- wildcard vertices": dict(wild=False), "- signature sketch (counts)": dict(sketch=False)}
     learned = {"full (learned decoder)": {}, "+ learned message channel (h=16)": dict(h=16),
                "+ hyperedge priors": dict(priors=True), "- FedAvg (local training)": dict(fedavg=False),
                "- pseudo-anomaly augmentation": dict(aug=0.0), "+ density matching (recomb=1.5)": dict(recomb=1.5)}
+    rows = load_rows("ablation")
+    have = {(r["dataset"], r["seed"], r["group"], r["variant"]) for r in rows}
     for ds in DATASETS:
         for seed in SEEDS3:
+            todo = [("structure", n, o) for n, o in struct.items()] + \
+                   ([] if ds == "xu_stoller" else [("learning", n, o) for n, o in learned.items()])
+            todo = [t for t in todo if (ds, seed, t[0], t[1]) not in have]
+            if not todo:
+                continue
             w = world(ds, seed); lab = w.labels()
-            for name, ov in struct.items():
-                r = run(w, Config(seed=seed, h=0, **ov), labels=lab, rule=True)
-                rows.append(dict(dataset=ds, seed=seed, group="structure", variant=name, **slim(r)))
-            for name, ov in learned.items():
-                if ds == "xu_stoller":
-                    continue
-                r = run(w, Config(seed=seed, **ov), labels=lab)
-                rows.append(dict(dataset=ds, seed=seed, group="learning", variant=name, **slim(r)))
-                print(ds, seed, name, round(r["macro_f1"], 3), flush=True)
-            save("ablation", rows)
+            for group, name, ov in todo:
+                if group == "structure":
+                    r = run(w, Config(seed=seed, h=0, **ov), labels=lab, rule=True)
+                else:
+                    r = run(w, Config(seed=seed, **ov), labels=lab)
+                rows.append(dict(dataset=ds, seed=seed, group=group, variant=name, **slim(r)))
+                save("ablation", rows)
+                print(ds, seed, group, name, round(r["macro_f1"], 3), flush=True)
 
 
 def sketch():
@@ -103,17 +113,24 @@ def sketch():
 
 
 def noise():
-    rows = []
+    """Row-level resumable."""
+    rows = [r for r in load_rows("noise") if r.get("salted")]
+    have = {(r["dataset"], r["seed"], r["sigma"], r["decoder"]) for r in rows}
     for ds in ["agentic", "amazon"]:
         for seed in SEEDS3:
+            todo = [(sg, dec) for sg in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5] for dec in ("rule", "learned (noise-aware)")
+                    if (ds, seed, sg, dec) not in have]
+            if not todo:
+                continue
             w = world(ds, seed); lab = w.labels()
-            for sg in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5]:
-                r = run(w, Config(seed=seed, h=0, sigma=sg), labels=lab, rule=True)
-                rows.append(dict(dataset=ds, seed=seed, sigma=sg, decoder="rule", A=w.A, **slim(r)))
-                r = run(w, Config(seed=seed, sigma=sg), labels=lab)
-                rows.append(dict(dataset=ds, seed=seed, sigma=sg, decoder="learned (noise-aware)", A=w.A, **slim(r)))
-                print(ds, seed, sg, flush=True)
-            save("noise", rows)
+            for sg, dec in todo:
+                if dec == "rule":
+                    r = run(w, Config(seed=seed, h=0, sigma=sg), labels=lab, rule=True)
+                else:
+                    r = run(w, Config(seed=seed, sigma=sg), labels=lab)
+                rows.append(dict(dataset=ds, seed=seed, sigma=sg, decoder=dec, A=w.A, salted=True, **slim(r)))
+                save("noise", rows)
+                print(ds, seed, sg, dec, round(r["macro_f1"], 3), flush=True)
 
 
 def scale():

@@ -450,4 +450,19 @@ if __name__ == "__main__":
         for k, v in sorted(macros.items()):
             name = "".join(ch if ch.isalpha() else "ABCDEFGHIJ"[int(ch)] if ch.isdigit() else "" for ch in k)
             fh.write(f"\\newcommand{{\\{name}}}{{{v}}}\n")
-    print("wrote", len(macros), "macros to", OUT)
+    # values of runs that have not finished yet print as [pending] instead of breaking the build
+    import re
+    pat = re.compile(r"\\((?:main(?:agentic|xustoller|amazon)|sk(?:agentic|xustoller|amazon)|nz(?:agentic|amazon)|abl(?:str|lea)"
+                     r"|lk(?:agentic|xustoller|amazon|all)|nat(?:agentic|xustoller|amazon)|cs(?:conf|red|n)|sc(?:fixed|scaled|K)"
+                     r"|st(?:agentic|amazon|maxerr|tdelta|tfull)|prev(?:agentic|xustoller|amazon)|n(?:agentic|xustoller|amazon)(?:rules|req)"
+                     r"|mh(?:agentic|xustoller|amazon))[A-Za-z]*)")
+defined = {"".join(ch if ch.isalpha() else "ABCDEFGHIJ"[int(ch)] if ch.isdigit() else "" for ch in k) for k in macros}
+used = set()
+for f in ("paper/main.tex", "paper/response.tex"):
+    if os.path.exists(f):
+        used |= set(pat.findall(open(f).read()))
+pending = sorted(used - defined)
+with open(f"{OUT}/numbers.tex", "a") as fh:
+    for name in pending:
+        fh.write(f"\\newcommand{{\\{name}}}{{\\textbf{{[pending]}}}}\n")
+    print("wrote", len(macros), "macros to", OUT, "; pending:", len(pending), pending[:8])

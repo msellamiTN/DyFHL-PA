@@ -16,6 +16,7 @@
 \makeatletter\newcommand{\rawinput}[1]{\@@input #1 }\makeatother
 
 \newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
 \newtheorem{example}{Example}
@@ -66,7 +67,7 @@ Third, the information needed to decide a cross-domain relation is additive over
 
 \paragraph{Contributions}
 \begin{enumerate}
-\item A hypergraph model of multi-domain attribute-based policies with per-attribute \emph{wildcard vertices}, in which matching, overlap and subsumption are incidence conditions (Propositions~\ref{lem:match}--\ref{lem:sub}) and four cross-domain anomaly types are relations between hyperedges. Hierarchies, ranges and negation reduce exactly to this model (Proposition~\ref{prop:reduce}). A running example from an agentic deployment is used throughout (Section~\ref{sec:problem}).
+\item A hypergraph model of multi-domain attribute-based policies with per-attribute \emph{wildcard vertices}, in which matching, overlap and subsumption are incidence conditions (Lemmas~\ref{lem:match}--\ref{lem:sub}) and four cross-domain anomaly types are relations between hyperedges. Hierarchies, ranges and negation reduce exactly to this model (Proposition~\ref{prop:reduce}). A running example from an agentic deployment is used throughout (Section~\ref{sec:problem}).
 \item \name, a protocol in which domains exchange scope- and effect-partitioned vertex aggregates of hashed hyperedge signatures, decoded by a rule that is disjunctive within an attribute and conjunctive across attributes (Section~\ref{sec:method}). For each anomaly type we give the decision rule, proofs of one-sided error, of exactness without collisions and of a false-positive bound in $1/B$, an algorithm, and a worked example with a figure (Section~\ref{sec:types}). Policy churn is absorbed by exact sparse deltas (Section~\ref{sec:delta}).
 \item An analysis and a measurement of what the exchange reveals: the share of rules that other members can reconstruct, as a function of $B$, and its trade-off against accuracy (Sections~\ref{sec:privacy} and \ref{sec:sketch}).
 \item An evaluation on a synthetic agentic benchmark and on policies derived from two public sources, with six baselines, structural and learning ablations, studies of sketch size, noise, scale and churn, naturally occurring anomalies, and a healthcare case study. An optional decoder trained by federated averaging on a label-free pseudo-domain task is compared with the fixed rule. Code, a Colab notebook and an interactive explorer are released (Sections~\ref{sec:setup} and \ref{sec:results}).
@@ -169,26 +170,26 @@ Every hyperedge meets every block $\mathcal{V}_a$, either in value vertices or i
 
 The three semantic relations of policy analysis become incidence conditions.
 
-\begin{proposition}[Matching]
+\begin{lemma}[Matching]
 \label{lem:match}
 $r\models q$ iff for every attribute $a$, $(a,q_a)\in e(r)$ or $(a,\ast)\in e(r)$.
-\end{proposition}
+\end{lemma}
 \begin{proof}
 By Definition~\ref{def:hg}, $(a,\ast)\in e(r)$ iff $r_a=\ast$, and $(a,q_a)\in e(r)$ iff $r_a\neq\ast$ and $q_a\in r_a$. The claim is the definition of matching.
 \end{proof}
 
-\begin{proposition}[Overlap]
+\begin{lemma}[Overlap]
 \label{lem:overlap}
 Call $r$ and $r'$ \emph{compatible on $a$} iff $(a,\ast)\in e(r)\cup e(r')$ or $e(r)\cap e(r')\cap\mathcal{V}_a\neq\emptyset$. Some request is matched by both $r$ and $r'$ iff they are compatible on every attribute. In that case we say that $r$ and $r'$ \emph{overlap}.
-\end{proposition}
+\end{lemma}
 \begin{proof}
-($\Rightarrow$) Let $r\models q$ and $r'\models q$ and fix $a$. If neither rule is a wildcard on $a$, then $q_a\in r_a\cap r'_a$, so $(a,q_a)\in e(r)\cap e(r')$. ($\Leftarrow$) Build $q$ attribute by attribute: if both hyperedges share a value vertex $(a,v)$, set $q_a=v$; otherwise one of them is a wildcard on $a$, and we take $q_a$ from the value set of the other (any value if both are wildcards). By Proposition~\ref{lem:match} both rules match $q$.
+($\Rightarrow$) Let $r\models q$ and $r'\models q$ and fix $a$. If neither rule is a wildcard on $a$, then $q_a\in r_a\cap r'_a$, so $(a,q_a)\in e(r)\cap e(r')$. ($\Leftarrow$) Build $q$ attribute by attribute: if both hyperedges share a value vertex $(a,v)$, set $q_a=v$; otherwise one of them is a wildcard on $a$, and we take $q_a$ from the value set of the other (any value if both are wildcards). By Lemma~\ref{lem:match} both rules match $q$.
 \end{proof}
 
-\begin{proposition}[Subsumption]
+\begin{lemma}[Subsumption]
 \label{lem:sub}
 Call $r$ \emph{contained in $r'$ on $a$} iff $(a,\ast)\in e(r')$, or $(a,\ast)\notin e(r)$ and $e(r)\cap\mathcal{V}_a\subseteq e(r')$. Every request matched by $r$ is matched by $r'$ iff $r$ is contained in $r'$ on every attribute. We then write $r\sqsubseteq r'$.
-\end{proposition}
+\end{lemma}
 \begin{proof}
 ($\Leftarrow$) Let $r\models q$ and fix $a$. If $r'_a=\ast$ there is nothing to show; otherwise $r_a\neq\ast$, so $q_a\in r_a\subseteq r'_a$. ($\Rightarrow$) Suppose containment fails on $a$: $r'_a\neq\ast$ and either $r_a=\ast$ or some $v\in r_a\setminus r'_a$ exists. In the first case normal form gives a value $v\in D_a\setminus r'_a$. Let $q_a=v$ and, for $b\neq a$, let $q_b$ be any element of $r_b$ (any value if $r_b=\ast$). Then $r\models q$ and $r'\not\models q$.
 \end{proof}
@@ -292,7 +293,7 @@ For a hyperedge $e$ of domain $d$ with scope $s$ and an effect channel $c$, defi
 \begin{cases}0 & \text{if } (a,\ast)\in e,\\[2pt]
 \min_{(a,v)\in e}C_d[s,(a,v),c] & \text{otherwise.}\end{cases}\label{eq:sub}
 \end{align}
-Eq.~\eqref{eq:ov} is Proposition~\ref{lem:overlap} applied to counts: bin $b$ of $\mathrm{ov}_a(e,c)$ is the number of foreign rules of that bin and effect that are compatible with $e$ on $a$ (a rule with two shared values is counted twice, which does not matter for positivity). Eq.~\eqref{eq:sub} is Proposition~\ref{lem:sub}: a foreign rule contains $e$ on $a$ if it is a wildcard on $a$ or is incident to every value vertex of $e$; the minimum over the values of $e$ is positive in bin $b$ only if every one of them has a rule of that bin. Evidence is then combined \emph{conjunctively} across attributes, bin by bin:
+Eq.~\eqref{eq:ov} is Lemma~\ref{lem:overlap} applied to counts: bin $b$ of $\mathrm{ov}_a(e,c)$ is the number of foreign rules of that bin and effect that are compatible with $e$ on $a$ (a rule with two shared values is counted twice, which does not matter for positivity). Eq.~\eqref{eq:sub} is Lemma~\ref{lem:sub}: a foreign rule contains $e$ on $a$ if it is a wildcard on $a$ or is incident to every value vertex of $e$; the minimum over the values of $e$ is positive in bin $b$ only if every one of them has a rule of that bin. Evidence is then combined \emph{conjunctively} across attributes, bin by bin:
 \begin{equation}
 \mathrm{OV}(e,c)=\min_{a\in\mathcal{A}}\mathrm{ov}_a(e,c),\qquad \mathrm{SUB}(e,c)=\min_{a\in\mathcal{A}}\mathrm{sub}_a(e,c).
 \label{eq:conj}
@@ -314,7 +315,7 @@ For each of the four anomaly types we give the decision rule, its guarantees wit
 For any $B\ge1$, if $e$ has an x-conflict then the rule flags it.
 \end{proposition}
 \begin{proof}
-Let $r'\in F^{\bar c}(e)$ overlap $e$, $c=\eff(e)$, and $b=h(r')$. Fix an attribute $a$; by Proposition~\ref{lem:overlap} the two rules are compatible on $a$. If $(a,\ast)\in e(r')$, then $r'$ contributes $1$ to $C_d[s,(a,\ast),\bar c]_b$, the first term of \eqref{eq:ov}. Otherwise $r'$ is incident to value vertices of $\mathcal{V}_a$ only: if $(a,\ast)\in e$ all of them are summed in \eqref{eq:ov}; if not, compatibility gives a shared vertex $(a,v)\in e\cap e(r')$, whose term is summed. In every case $\mathrm{ov}_a(e,\bar c)_b\ge1$, hence $\mathrm{OV}(e,\bar c)_b\ge1>\tau$.
+Let $r'\in F^{\bar c}(e)$ overlap $e$, $c=\eff(e)$, and $b=h(r')$. Fix an attribute $a$; by Lemma~\ref{lem:overlap} the two rules are compatible on $a$. If $(a,\ast)\in e(r')$, then $r'$ contributes $1$ to $C_d[s,(a,\ast),\bar c]_b$, the first term of \eqref{eq:ov}. Otherwise $r'$ is incident to value vertices of $\mathcal{V}_a$ only: if $(a,\ast)\in e$ all of them are summed in \eqref{eq:ov}; if not, compatibility gives a shared vertex $(a,v)\in e\cap e(r')$, whose term is summed. In every case $\mathrm{ov}_a(e,\bar c)_b\ge1$, hence $\mathrm{OV}(e,\bar c)_b\ge1>\tau$.
 \end{proof}
 
 \begin{proposition}[Exactness without collisions]
@@ -322,7 +323,7 @@ Let $r'\in F^{\bar c}(e)$ overlap $e$, $c=\eff(e)$, and $b=h(r')$. Fix an attrib
 If $h$ is injective on $F^{\bar c}(e)$, the rule flags $e$ iff $e$ has an x-conflict.
 \end{proposition}
 \begin{proof}
-One direction is Proposition~\ref{thm:conf-complete}. Conversely let $\mathrm{OV}(e,\bar c)_b>\tau$. Entries are integers, so $\mathrm{ov}_a(e,\bar c)_b\ge1$ for all $a$. By \eqref{eq:agg} and \eqref{eq:ctx}, bin $b$ of the channel $\bar c$ in scope $s$ receives contributions only from rules of $F^{\bar c}(e)$ with hash $b$, and by injectivity there is exactly one, say $r'$. For each $a$, $\mathrm{ov}_a(e,\bar c)_b\ge1$ then means that $r'$ is incident to $(a,\ast)$, or $e$ is and $r'$ is incident to some value vertex, or $r'$ is incident to a value vertex of $e$: $r'$ and $e$ are compatible on $a$. By Proposition~\ref{lem:overlap} they overlap, and their effects differ.
+One direction is Proposition~\ref{thm:conf-complete}. Conversely let $\mathrm{OV}(e,\bar c)_b>\tau$. Entries are integers, so $\mathrm{ov}_a(e,\bar c)_b\ge1$ for all $a$. By \eqref{eq:agg} and \eqref{eq:ctx}, bin $b$ of the channel $\bar c$ in scope $s$ receives contributions only from rules of $F^{\bar c}(e)$ with hash $b$, and by injectivity there is exactly one, say $r'$. For each $a$, $\mathrm{ov}_a(e,\bar c)_b\ge1$ then means that $r'$ is incident to $(a,\ast)$, or $e$ is and $r'$ is incident to some value vertex, or $r'$ is incident to a value vertex of $e$: $r'$ and $e$ are compatible on $a$. By Lemma~\ref{lem:overlap} they overlap, and their effects differ.
 \end{proof}
 
 \begin{proposition}[False-positive bound]
@@ -330,7 +331,7 @@ One direction is Proposition~\ref{thm:conf-complete}. Conversely let $\mathrm{OV
 Let $e$ have no x-conflict and $N=|F^{\bar c}(e)|$. The rule flags $e$ with probability at most $N(N-1)/(2B)$. Consequently $B\ge N^2/(2\delta)$ bins suffice for a false-positive probability of at most $\delta$.
 \end{proposition}
 \begin{proof}
-A flag requires a bin $b$ in which, for each attribute, some rule of $F^{\bar c}(e)$ with hash $b$ is compatible with $e$. No single rule is compatible on all attributes, since by Proposition~\ref{lem:overlap} it would overlap $e$. So at least two distinct rules among the $N$ share bin $b$. Two given rules collide with probability $1/B$; a union bound over the $\binom N2$ pairs gives the claim.
+A flag requires a bin $b$ in which, for each attribute, some rule of $F^{\bar c}(e)$ with hash $b$ is compatible with $e$. No single rule is compatible on all attributes, since by Lemma~\ref{lem:overlap} it would overlap $e$. So at least two distinct rules among the $N$ share bin $b$. Two given rules collide with probability $1/B$; a union bound over the $\binom N2$ pairs gives the claim.
 \end{proof}
 The bound is loose, because it ignores that the colliding rules must jointly cover all attributes, but it identifies the governing ratio $N^2/B$.
 
@@ -375,7 +376,7 @@ For $r_2$ (deny) the permit channel holds $r_4$, $r_5$ and $r_6$ in bins 3, 4 an
 Let $c=\eff(e)$ and $N=|F^{c}(e)|$. (i) For any $B\ge1$, if $e$ is x-redundant the rule flags it. (ii) If $h$ is injective on $F^{c}(e)$, the rule flags $e$ iff $e$ is x-redundant. (iii) If $e$ is not x-redundant, it is flagged with probability at most $N(N-1)/(2B)$.
 \end{proposition}
 \begin{proof}
-(i) Let $r'\in F^{c}(e)$ with $e\sqsubseteq r'$ and $b=h(r')$. Fix $a$. By Proposition~\ref{lem:sub}, either $(a,\ast)\in e(r')$, and the wildcard term of \eqref{eq:sub} is at least 1 in bin $b$; or $(a,\ast)\notin e$ and every value vertex of $e$ in $\mathcal{V}_a$ belongs to $e(r')$, so each $C_d[s,(a,v),c]_b\ge1$ and so is their minimum. Hence $\mathrm{SUB}(e,c)_b\ge1$. (ii) Let $\mathrm{SUB}(e,c)_b\ge1$ and let $r'$ be the unique rule of $F^{c}(e)$ in bin $b$. For each $a$, $\mathrm{sub}_a(e,c)_b\ge1$ means that $r'$ is incident to $(a,\ast)$, or $e$ is not a wildcard on $a$ and $r'$ is incident to every value vertex of $e$ in $\mathcal{V}_a$: containment on $a$. Proposition~\ref{lem:sub} gives $e\sqsubseteq r'$. (iii) As in Proposition~\ref{prop:fp}: without a single containing rule, a positive bin needs two distinct rules of $F^c(e)$ in it.
+(i) Let $r'\in F^{c}(e)$ with $e\sqsubseteq r'$ and $b=h(r')$. Fix $a$. By Lemma~\ref{lem:sub}, either $(a,\ast)\in e(r')$, and the wildcard term of \eqref{eq:sub} is at least 1 in bin $b$; or $(a,\ast)\notin e$ and every value vertex of $e$ in $\mathcal{V}_a$ belongs to $e(r')$, so each $C_d[s,(a,v),c]_b\ge1$ and so is their minimum. Hence $\mathrm{SUB}(e,c)_b\ge1$. (ii) Let $\mathrm{SUB}(e,c)_b\ge1$ and let $r'$ be the unique rule of $F^{c}(e)$ in bin $b$. For each $a$, $\mathrm{sub}_a(e,c)_b\ge1$ means that $r'$ is incident to $(a,\ast)$, or $e$ is not a wildcard on $a$ and $r'$ is incident to every value vertex of $e$ in $\mathcal{V}_a$: containment on $a$. Lemma~\ref{lem:sub} gives $e\sqsubseteq r'$. (iii) As in Proposition~\ref{prop:fp}: without a single containing rule, a positive bin needs two distinct rules of $F^c(e)$ in it.
 \end{proof}
 
 \begin{algorithm}[t]
@@ -408,7 +409,7 @@ For $r_1$ (permit) the Data Platform reads the permit channel of $C_A$, which ho
 
 \subsection{Cross-domain incompleteness (gaps)}
 \label{sec:gap}
-A request $q$ that $d$ cannot decide locally is a query hyperedge with one value vertex per attribute, so \eqref{eq:ov} reduces to $\mathrm{ov}_a(q,c)=C_d[s,(a,\ast),c]+C_d[s,(a,q_a),c]$, which is Proposition~\ref{lem:match} applied to counts.
+A request $q$ that $d$ cannot decide locally is a query hyperedge with one value vertex per attribute, so \eqref{eq:ov} reduces to $\mathrm{ov}_a(q,c)=C_d[s,(a,\ast),c]+C_d[s,(a,q_a),c]$, which is Lemma~\ref{lem:match} applied to counts.
 \paragraph{Decision rule} $\text{x-gap}(q)\iff\max_b\sum_{c}\mathrm{OV}(q,c)_b\le\tau$: no bin of either effect channel is positive on all attributes.
 
 \begin{proposition}[Gap detection]
@@ -416,7 +417,7 @@ A request $q$ that $d$ cannot decide locally is a query hyperedge with one value
 (i) For any $B\ge1$, every request flagged as an x-gap is one. (ii) If $h$ is injective on $F^{c}(q)$ for both effects, the rule flags $q$ iff $q$ is an x-gap. (iii) A true x-gap is missed with probability at most $\sum_c N_c(N_c-1)/(2B)$, $N_c=|F^c(q)|$.
 \end{proposition}
 \begin{proof}
-(i) Contrapositive: let $r'\in F^c(q)$ match $q$ and $b=h(r')$. By Proposition~\ref{lem:match}, for each $a$ the rule $r'$ is incident to $(a,q_a)$ or to $(a,\ast)$, so $\mathrm{ov}_a(q,c)_b\ge1$ and $\mathrm{OV}(q,c)_b\ge1$: $q$ is not flagged. (ii) If $\mathrm{OV}(q,c)_b\ge1$ and bin $b$ of channel $c$ holds a single rule $r'$, then $r'$ is incident to $(a,q_a)$ or $(a,\ast)$ for every $a$, i.e.\ $r'\models q$. (iii) A missed gap needs, in some channel, a positive bin without a matching rule, hence two rules of that channel in one bin; apply the union bound per channel.
+(i) Contrapositive: let $r'\in F^c(q)$ match $q$ and $b=h(r')$. By Lemma~\ref{lem:match}, for each $a$ the rule $r'$ is incident to $(a,q_a)$ or to $(a,\ast)$, so $\mathrm{ov}_a(q,c)_b\ge1$ and $\mathrm{OV}(q,c)_b\ge1$: $q$ is not flagged. (ii) If $\mathrm{OV}(q,c)_b\ge1$ and bin $b$ of channel $c$ holds a single rule $r'$, then $r'$ is incident to $(a,q_a)$ or $(a,\ast)$ for every $a$, i.e.\ $r'\models q$. (iii) A missed gap needs, in some channel, a positive bin without a matching rule, hence two rules of that channel in one bin; apply the union bound per channel.
 \end{proof}
 The error is on the opposite side to conflicts: collisions can hide a gap but cannot invent one.
 
@@ -677,11 +678,11 @@ Variant & Agentic & AMZ-Access & x-conf. & x-red. & x-irr. & x-gap\\
 
 \subsection{RQ3: sketch size, communication and noise}
 \label{sec:sketch}
-\paragraph{Sketch size} Fig.~\ref{fig:sketch} varies $B$. For \name-\R{} macro-F1 rises monotonically with $B$, from \skagenticruleBlxiv{} at $B=64$ to \skagenticruleBdxii{} at $B=512$ and \skagenticruleBmmmmxcvi{} at $B=4096$ on Agentic (\skamazonruleBlxiv, \skamazonruleBdxii{} and \skamazonruleBmmmmxcvi{} on AMZ-Access; \skxustollerruleBlxiv, \skxustollerruleBdxii{} and \skxustollerruleBmmmmxcvi{} on XS-ABAC), as Proposition~\ref{prop:fp} predicts: with enough bins the decoder reproduces the pooled oracle. The number of non-zeros a domain uploads does not depend on $B$ (\skagenticbytesBdxii~kB on Agentic at four bytes per value); only the dense context held by the receiver grows. On Agentic the learned decoder is slightly better than the rule up to $B=256$, where the fixed threshold fires on most hyperedges while the heads can still use the bin statistics; from $B=512$ upward, and on AMZ-Access at every $B$, the rule decoder is better.
+\paragraph{Sketch size} Fig.~\ref{fig:sketch} varies $B$. For \name-\R{} macro-F1 rises monotonically with $B$ on all three benchmarks (Fig.~\ref{fig:sketch}): on Agentic from \skagenticruleBlxiv{} at $B=64$ to \skagenticruleBdxii{} at 512, \skagenticruleBmmmmxcvi{} at 4096 and \skagenticruleBsixteenk{} at 16384; on XS-ABAC from \skxustollerruleBlxiv{} to \skxustollerruleBdxii, \skxustollerruleBmmmmxcvi{} and \skxustollerruleBsixteenk; on AMZ-Access from \skamazonruleBlxiv{} to \skamazonruleBdxii, \skamazonruleBmmmmxcvi{} and \skamazonruleBsixteenk. This is the behaviour Proposition~\ref{prop:fp} predicts: the remaining errors are collisions, and they vanish as $B$ grows relative to the number of rules per scope. XS-ABAC, with the most rules overlapping each other, needs the largest sketches. The number of non-zero entries a domain uploads does not depend on $B$ (\skagenticbytesBdxii~kB on Agentic at four bytes per value); a dense representation of the same aggregate grows linearly, from \skagenticdensekBdxii~kB at $B=512$ to \skagenticdensekBsixteenk~kB at $B=16384$. On Agentic the learned decoder is slightly better than the rule up to $B=256$, where the fixed threshold fires on many hyperedges while the heads can still use the bin statistics; from $B=512$ upward, and on AMZ-Access at every $B$, the rule decoder is better. The learned decoder was not trained on XS-ABAC in this study.
 
 \begin{figure}[t]
 \centering\includegraphics[width=\linewidth]{generated/fig_sketch}
-\caption{Effect of the number of sketch bins $B$ on macro-F1 (left, centre; mean $\pm$ std over three seeds) and on the size of one domain's upload (right; non-zero entries versus dense tensor).}
+\caption{Macro-F1 against the number of sketch bins $B$ (mean $\pm$ std over three seeds). The learned decoder was evaluated up to $B=1024$ on Agentic and AMZ-Access.}
 \label{fig:sketch}
 \end{figure}
 
