@@ -13,6 +13,7 @@
 \usepackage{hyperref}
 \usepackage{xspace}
 \input{generated/numbers}
+\input{generated/revision_numbers}
 \makeatletter\newcommand{\rawinput}[1]{\@@input #1 }\makeatother
 
 \newtheorem{proposition}{Proposition}
@@ -31,14 +32,14 @@
 \begin{document}
 \begin{frontmatter}
 
-\title{DyFHL-PA: Dynamic Federated Hypergraph Learning for Cross-Domain Access Control Policy Anomaly Analysis in Agentic Distributed Environments}
+\title{DyFHL-PA: Dynamic Federated Hypergraph Sketching for Cross-Domain Access Control Policy Anomaly Analysis in Agentic Distributed Environments}
 
 \author[riadi]{Mokhtar Sellami\corref{cor}}
 \cortext[cor]{Corresponding author.}
 \address[riadi]{RIADI Laboratory, National School of Computer Science (ENSI), University of Manouba, Manouba, Tunisia}
 
 \begin{abstract}
-Access-control policies are written by the organisations that own resources, yet are evaluated together when agents, MCP servers, tools, applications and people of several organisations collaborate. A rule that is consistent inside its own domain can contradict, duplicate or leave uncovered what another domain decided, and no domain can see this because policies are confidential. We present \name, which detects four cross-domain anomalies (conflict, redundancy, coverage gaps and irrelevancy) without pooling policies. Rules are hyperedges over attribute-value and wildcard vertices, on which matching, overlap and subsumption become incidence conditions. Domains exchange only per-vertex sums of hashed rule signatures, and a decoder that is disjunctive within an attribute and conjunctive across attributes recovers them. For each anomaly type we give a decision rule, an algorithm, an example and proofs: no conflict or redundancy is missed, reported gaps are real, false alarms occur with probability at most $N(N-1)/(2B)$ for $B$ hash bins, and policy changes are absorbed by exact sparse updates. On a synthetic agentic benchmark and policies derived from two public datasets, the decoder reaches macro-F1 of \mainagenticR, \mainxustollerR{} and \mainamazonR{} with 512 bins and \skagenticruleBmmmmxcvi, \skxustollerruleBmmmmxcvi{} and \skamazonruleBmmmmxcvi{} with 4096, against \mainagenticbest, \mainxustollerbest{} and \mainamazonbest{} for the best non-pooling baseline. We also measure what the exchange reveals: with 512 bins, \lkallBdxii\% of the rules in a shared scope can be reconstructed by the other members of that scope, and no bin count gives both high accuracy and low exposure. \name therefore minimises disclosure rather than guaranteeing secrecy.
+Access-control policies are written by the organisations that own resources, yet are evaluated together when agents, MCP servers, tools, applications and people of several organisations collaborate. A rule that is consistent inside its own domain can contradict, duplicate or leave uncovered what another domain decided, and no domain can see this because policies are confidential. We present \name, which detects four cross-domain anomalies (conflict, redundancy, coverage gaps and irrelevancy) without pooling policies. Rules are hyperedges over attribute-value and wildcard vertices, on which matching, overlap and subsumption become incidence conditions. Domains exchange only per-vertex sums of hashed rule signatures, and a decoder that is disjunctive within an attribute and conjunctive across attributes recovers them. For each anomaly type we give a decision rule, an algorithm, an example and proofs: no conflict or redundancy is missed, reported gaps are real, false alarms occur with probability at most $N(N-1)/(2B)$ for $B$ hash bins, and policy changes are absorbed by exact sparse updates. On a synthetic agentic benchmark and policies derived from two public datasets, the decoder reaches macro-F1 of \mainagenticR, \mainxustollerR{} and \mainamazonR{} with 512 bins and \mainagenticRbig, \mainxustollerRbig{} and \mainamazonRbig{} with 4096, against \mainagenticbest, \mainxustollerbest{} and \mainamazonbest{} for the best non-pooling baseline. We also measure what the exchange reveals: with 512 bins, \lkallBdxii\% of the rules in a shared scope can be reconstructed by the other members of that scope, and no bin count gives both high accuracy and low exposure. \name therefore minimises disclosure rather than guaranteeing secrecy.
 \end{abstract}
 
 
@@ -122,6 +123,28 @@ FedHGL~\cite{luo2024fedhgl} & none (node classification) & n/a & yes & -- \\
 \label{sec:problem}
 
 This section fixes the policy model, introduces the running example used throughout the paper, and shows that the three relations on which anomaly analysis rests (matching, overlap and subsumption) are incidence conditions on a hypergraph.
+
+\begin{table}[t]
+\caption{Main notation.}
+\label{tab:notation}
+\centering\footnotesize
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+Symbol & Meaning\\
+\midrule
+$\mathcal{A}$, $A$, $D_a$ & attributes, their number, value set of attribute $a$\\
+$r_a$, $\ast$, $\eff(r)$, $\scp(r)$ & condition of rule $r$ on $a$, wildcard, effect, collaboration scope\\
+$P_d$, $K$, $M_s$ & rules of domain $d$, number of domains, members of scope $s$\\
+$e(r)$, $e(q)$, $\mathcal{V}_a$ & hyperedge of a rule, of a request; vertices of attribute $a$ (values and wildcard)\\
+$F(r)$, $F^{c}(r)$, $N$ & foreign rules in the scope of $r$; those of effect $c$; their number\\
+$B$, $h$, $\sigma(r)$ & number of bins, keyed hash, one-hot signature of rule $r$\\
+$U_d$, $L_d$ & aggregate and entity liveness uploaded by domain $d$\\
+$C_d$, $\Lambda_d$ & context received by $d$: sum of the other members' aggregates, liveness\\
+$\mathrm{ov}_a$, $\mathrm{sub}_a$, $\mathrm{OV}$, $\mathrm{SUB}$ & per-attribute overlap and subsumption evidence; their conjunction over attributes\\
+$\tau$, $\sigma_{\!n}$ & decision threshold ($\tfrac12$), standard deviation of optional noise\\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \subsection{Policies, domains and scopes}
 Let $\mathcal{A}=\{a_1,\dots,a_A\}$ be the attributes (of subjects, resources, actions and environment) and $D_a$ the finite value set of attribute $a$. A \emph{request} $q$ assigns one value $q_a\in D_a$ to every attribute. A \emph{rule} $r$ is a triple $(\mathrm{cond}(r),\eff(r),\scp(r))$: $\mathrm{cond}(r)$ maps each attribute either to a set $r_a$ or to the wildcard $\ast$; $\eff(r)\in\{\textsf{permit},\textsf{deny}\}$; and $\scp(r)$ is a collaboration scope. We assume the \emph{normal form} $\emptyset\neq r_a\subsetneq D_a$: a condition that admits every value is written $\ast$. Rule $r$ \emph{matches} $q$, written $r\models q$, iff for every $a$, $r_a=\ast$ or $q_a\in r_a$.
@@ -548,7 +571,7 @@ With noise, or with a small $B$, a fixed threshold on $\max_b$ is not obviously 
 No cross-domain labels exist to train on, since producing them is the problem. We use a \emph{pseudo-domain} task that every domain can build alone. At each local step, domain $d$ (i) splits its rules at random into two halves, (ii) adds synthetic variants of its own rules (copies with flipped or kept effect, generalised by dropping an attribute or specialised by constraining a wildcard, placed in the opposite half; some refer to entities $d$ owns, with random liveness), (iii) computes with its exact local analyser the labels of Definition~\ref{def:anom} with the other half playing the foreign domain, and (iv) decodes each half from the aggregate of the other, to which noise of the deployment level is added. The heads are trained with binary cross-entropy on these labels and averaged across domains with FedAvg~\cite{mcmahan2017communication}. Only the weights of the heads are shared. An optional \emph{learned message channel} lets each rule add a trained embedding of its vertex set to its signature; it is evaluated as an ablation.
 
 \subsection{Complexity and communication}
-Building $U_d$ costs $O(\sum_{r\in P_d}|e(r)|)$. Decoding one hyperedge costs $O(A\,B)$ after $O(A)$ gathers, so a domain with $n_d$ shared-scope rules spends $O(n_d A B)$, against $O(n^2A)$ for the pooled oracle on $n=\sum_d n_d$ rules. The upload of a domain has $\sum_{r}|e(r)|$ non-zero entries whatever $B$ is, and a delta has $|e(r)|$ entries per changed rule. The context a member receives is dense in the worst case: $S_d\,|\mathcal V|\,2B$ counts for $S_d$ scopes.
+Building $U_d$ costs $O(\sum_{r\in P_d}|e(r)|)$. Decoding one hyperedge costs $O(A\,B)$ after $O(A)$ gathers, so a domain with $n_d$ shared-scope rules spends $O(n_d A B)$, against $O(n^2A)$ for the pooled oracle on $n=\sum_d n_d$ rules. The upload of a domain has $\sum_{r}|e(r)|$ non-zero entries whatever $B$ is, and a delta has $|e(r)|$ entries per changed rule. The context a member receives is dense in the worst case: $S_d\,|\mathcal V|\,2B$ counts for $S_d$ scopes (\skagenticdensekBdxii~kB per uploaded aggregate on Agentic at $B=512$ and four bytes per count, \skagenticdensekBsixteenk~kB at $B=16384$), but it has at most as many non-zero entries as the foreign rules have incidences, so a sparse encoding is bounded by the size of the foreign policies. Scopes do not interact: aggregates, contexts and decisions are computed per scope.
 
 \subsection{Privacy analysis}
 \label{sec:privacy}
@@ -556,11 +579,43 @@ Building $U_d$ costs $O(\sum_{r\in P_d}|e(r)|)$. Decoding one hyperedge costs $O
 
 \paragraph{Exposure} The bin index links the vertices of a rule. If a foreign rule is the only one of its effect in its bin, the non-zero entries of that bin across vertices are exactly its hyperedge: the member learns the rule's conditions and effect, though not its owner. We call such a rule \emph{exposed}. When a bin holds $k\ge2$ rules, the member sees the multiset union of their hyperedges, a form of $k$-anonymity at bin level. For a uniform hash and $n$ foreign rules of one effect in a scope, a given rule is exposed with probability $(1-1/B)^{n-1}\approx e^{-(n-1)/B}$. Section~\ref{sec:sketch} measures the exposed fraction on all benchmarks and finds it matches this prediction.
 
-\paragraph{Choosing $B$, and why it is hard} By Proposition~\ref{prop:fp}, $B\ge N^2/(2\delta)$ bins bound the false-positive probability by $\delta$; keeping the expected exposed fraction below $\eta$ needs $B\le(n-1)/\ln(1/\eta)$. With $N\approx n$ the two conditions meet only if $n\le 2\delta/\ln(1/\eta)$, that is, never for useful $\delta$ and $\eta$. The false-positive bound is loose, so this argument shows only that the sufficient conditions are incompatible; the measurements in Fig.~\ref{fig:leakage} show that the trade-off itself is real: no sketch size gives both high accuracy and low exposure. \name therefore offers \emph{data minimisation} rather than secrecy. A domain discloses nothing about its rules outside shared scopes; inside a scope it discloses, for a chosen $B$, a measurable fraction of its rules to the other members, never to the server when secure aggregation~\cite{bonawitz2017practical} is used. Deployments that cannot accept this must compute the per-bin minimum of \eqref{eq:conj} under secure multi-party computation, which we leave to future work.
+\paragraph{Choosing $B$, and why it is hard} By Proposition~\ref{prop:fp}, $B\ge N^2/(2\delta)$ bins bound the false-positive probability by $\delta$; keeping the expected exposed fraction below $\eta$ needs $B\le(n-1)/\ln(1/\eta)$. With $N\approx n$ the two conditions meet only if $n\le 2\delta/\ln(1/\eta)$, that is, never for useful $\delta$ and $\eta$. The false-positive bound is loose, so this argument shows only that the sufficient conditions are incompatible; the measurements in Fig.~\ref{fig:leakage} show that the trade-off itself is real: no sketch size gives both high accuracy and low exposure. \name therefore offers \emph{data minimisation} rather than secrecy. A domain discloses nothing about its rules outside shared scopes; inside a scope it discloses, for a chosen $B$, a measurable fraction of its rules to the other members, never to the server when secure aggregation~\cite{bonawitz2017practical} is used. Deployments that cannot accept this need the decoder of Section~\ref{sec:mpc}.
+
+\paragraph{Updates expose more than a static context} Exposure as defined above is measured on one context. A member that subtracts two consecutive contexts, or receives a delta, isolates the rules changed in between; these are few, so almost all of them are alone in their bin. When 5\% of the rules are replaced in one step, \rvupdlxiv\% of the inserted rules are exposed in this way at $B=64$, \rvupddxii\% at $B=512$ and \rvupdmmmmxcvi\% at $B=4096$ (mean over the three benchmarks), against a static exposure of \lkallBlxiv\%, \lkallBdxii\% and \lkallBmmmmxcvi\%. In the plain protocol, incremental maintenance therefore costs confidentiality even at small $B$; batching updates into epochs with a fresh hash key and a full upload restores the static figures and gives up the communication saving of Section~\ref{sec:delta}.
+
+\paragraph{Small scopes, empty contributions and collusion} A scope has at least two members by definition. In a two-member scope the context is the peer's aggregate, so ownership is not hidden; between a third and a half of the scopes in our benchmarks are of this kind. A member without rules in a scope uploads zeros, which is visible to its peer only in a two-member scope. In a scope of $m$ members, $m-1$ colluding members obtain the remaining member's aggregate by subtraction.
+
+\paragraph{Where the plain protocol is appropriate} Reconstruction of 66--95\% of the shared-scope rules by the other members is acceptable where the members already trust each other with the content of shared-scope policies but have no common policy repository, no wish to reveal which unit wrote which rule, and policies outside the scope that must stay private: business units of one enterprise, or a consortium under contract. It is not acceptable between competitors or mutually distrusting tenants; for these, Section~\ref{sec:mpc} gives a form of the decoder that reveals only the flags.
 
 \paragraph{Noise and differential privacy} Adding or removing one rule changes $|e(r)|$ entries of \eqref{eq:agg} by one, an $\ell_2$ sensitivity of $\sqrt{e_{\max}}$ with $e_{\max}=\max_r|e(r)|$; for value sets of at most two values $e_{\max}\le2A$. The Gaussian mechanism~\cite{dwork2014algorithmic} with $\sigma_{\!n}=\sqrt{e_{\max}}\sqrt{2\ln(1.25/\delta)}/\varepsilon$ makes one release $(\varepsilon,\delta)$-differentially private at rule level. Releases compose: if every delta is released with fresh noise, the noise accumulated in a member's context grows with the number of deltas, and a rule is involved in two releases (insertion and removal). Section~\ref{sec:noise} shows that the conjunctive decoder collapses well before $\sigma_{\!n}$ reaches the values that a small $\varepsilon$ requires, because a minimum over attributes amplifies noise in any one of them.
 
-\paragraph{Members that deviate} The analysis above assumes honest-but-curious members. A member that uploads inflated counts makes others see spurious conflicts and redundancies (an attack on the auditors' attention) and can hide true gaps; a member that uploads negative counts can cancel another's contribution and hide a true conflict. Secure aggregation with input validation, which enforces non-negative counts bounded by the incidences a member declares, removes the second attack but not the first. A non-owner cannot falsify liveness if the server accepts $L_{d}[v]$ only from $\mathrm{own}(v)$.
+\paragraph{Members that deviate} The analysis above assumes honest-but-curious members. A member that uploads inflated counts makes others see spurious conflicts and redundancies (an attack on the auditors' attention) and can hide true gaps; a member that uploads negative counts can cancel another's contribution and hide a true conflict. Secure aggregation with input validation, which enforces non-negative counts bounded by the incidences a member declares, removes the second attack but not the first. A non-owner cannot falsify liveness if the server accepts $L_{d}[v]$ only from $\mathrm{own}(v)$. In terms of Table~\ref{tab:guarantees}: inflated counts leave ``no conflict'', ``not redundant'' and ``gap'' as reliable as before and only add false alarms and hidden gaps, so the one-sided guarantees survive; negative counts break the guarantee that no conflict or redundancy is missed, which is why non-negativity must be enforced.
+
+\subsection{Towards secrecy: the decoder as an arithmetic circuit}
+\label{sec:mpc}
+The exposure of Section~\ref{sec:privacy} comes from members holding the context in the clear, not from the encoding. Because aggregates are sums and all entries are non-negative integers, the rule decoder can be written as a low-degree arithmetic circuit over a prime field $\mathbb{F}_p$ and evaluated on additive secret shares, so that a member learns only its flags.
+\begin{itemize}
+\item \emph{Aggregation} is addition of shares and needs no interaction.
+\item \emph{Per-attribute evidence} (Eqs.~\eqref{eq:ov}--\eqref{eq:sub}) is linear in the context, except that the minimum over the at most two values of a condition in \eqref{eq:sub} is replaced by their product, which is positive exactly when the minimum is.
+\item \emph{Conjunction over attributes}: for non-negative entries, $\min_a x_a>0$ iff $\prod_a x_a\neq0$ in $\mathbb{F}_p$, which costs $A-1$ multiplications per bin.
+\item \emph{Maximum over bins}: some bin is positive iff $\sum_b\rho_b\prod_a x_{a,b}\neq0$ for random non-zero $\rho_b$, except with probability $1/p$; this costs $B$ multiplications and one zero test per decision.
+\end{itemize}
+The circuit has no comparison other than one zero test per rule and effect channel, and its cost does not depend on the number of foreign rules or members. We evaluated it in the clear over $\mathbb{F}_p$ with $p=2^{31}-1$ on the three benchmarks: its flags equal those of the rule decoder for every rule and request in \rvagree{} configurations of Table~\ref{tab:mpc}. The table also gives the number of multiplications per domain and the online communication they would need with Beaver triples and a 61-bit field (32 bytes per multiplication, both parties together). At $B=512$ a domain with 400 rules needs 5--8 million multiplications, about 0.2~GB online; at $B=4096$, 39--65 million and 1.2--2.1~GB. This is affordable for a periodic audit but not for per-request use.
+
+This is a design and a cost estimate, not an implemented protocol. Three questions are open. First, selecting the context entries of a rule reveals the rule to whoever holds the shares; hiding the selection costs an extra $|\mathcal{V}|\,B$ multiplications per rule, or a private-information-retrieval step. Second, flags leak through adaptive queries: a member that may submit arbitrary hypothetical rules learns the foreign policy bit by bit, so queries must be limited to registered rules and rate-limited. Third, the preprocessing of triples, the collusion threshold and a security proof remain to be worked out. With such a decoder, $B$ would trade accuracy against cost only, and the tension of Section~\ref{sec:privacy} would disappear.
+
+\begin{table}[t]
+\caption{Arithmetic-circuit decoder (seed 0): multiplications per domain for all its rules and requests, estimated online communication with Beaver triples, and agreement of its flags with the rule decoder on every rule and request.}
+\label{tab:mpc}
+\centering\footnotesize
+\begin{tabular}{lrrrrc}
+\toprule
+Benchmark & $B$ & Rules/domain & Mult.\ ($10^6$) & Online (MB) & Same flags\\
+\midrule
+\rawinput{generated/tab_mpc}
+\bottomrule
+\end{tabular}
+\end{table}
 
 %% ============================================================================
 \section{Experimental setup}
@@ -686,6 +741,22 @@ Variant & Agentic & AMZ-Access & x-conf. & x-red. & x-irr. & x-gap\\
 \label{fig:sketch}
 \end{figure}
 
+\paragraph{Measured false alarms and the choice of $B$} Table~\ref{tab:fp} compares the measured false-positive rate of conflict detection (the share of conflict-free rules that are flagged) with the bound of Proposition~\ref{prop:fp}, averaged over the same rules. With a median of about \rvmedN{} opposite-effect foreign rules per rule, the bound is close to 1 at $B=512$ and remains 4 to 50 times above the measured rate at larger $B$: it is safe but too conservative to choose $B$ from. The measured rates give practical guidance. With about one hundred foreign rules per effect and scope, $B=512$ leaves 12--55\% of the conflict-free rules falsely flagged, $B=4096$ leaves 2--16\%, and $B=16384$ leaves 0.5--4\%; the densest benchmark, XS-ABAC, is the worst case at every size. A deployment should therefore take $B$ at least 30 to 40 times the number of foreign rules per scope and effect for sparse policies and over 100 times for policies whose rules overlap as heavily as those of XS-ABAC, and should expect nearly all shared-scope rules to be exposed at those sizes unless the decoder of Section~\ref{sec:mpc} is used. Whether real multi-organisation policies are as dense as XS-ABAC, where 74\% of the rules conflict with a rule of another domain, is unknown; that density results from generating many rules over the few attributes of four small case studies, and we regard it as a stress test.
+
+\begin{table}[t]
+\caption{Conflict detection, seed 0: measured false-positive rate (FPR) among conflict-free rules and the mean bound $\min(1,N(N-1)/(2B))$ of Proposition~\ref{prop:fp} over the same rules.}
+\label{tab:fp}
+\centering\footnotesize
+\begin{tabular}{rcccccc}
+\toprule
+& \multicolumn{2}{c}{Agentic} & \multicolumn{2}{c}{XS-ABAC} & \multicolumn{2}{c}{AMZ-Access}\\ \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(l){6-7}
+$B$ & FPR & bound & FPR & bound & FPR & bound\\
+\midrule
+\rawinput{generated/tab_fp}
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{Exposure} Fig.~\ref{fig:leakage}a reports, for every member of every scope, the fraction of the foreign rules it receives that are alone in their bin and therefore exposed (Section~\ref{sec:privacy}). The three benchmarks follow the uniform-hash prediction closely. Averaged over benchmarks, \lkallBlxiv\% of foreign rules are exposed at $B=64$, \lkallBdxii\% at $B=512$ and \lkallBmmmmxcvi\% at $B=4096$. Fig.~\ref{fig:leakage}b plots accuracy against exposure, one point per sketch size: accuracy rises only as exposure rises, and the settings that reproduce the oracle expose nearly every rule to the other members of its scope. This is the quantitative form of the trade-off discussed in Section~\ref{sec:privacy}, and the main limitation of the protocol for deployments in which members of a scope do not trust each other.
 
 \begin{figure}[t]
@@ -784,7 +855,7 @@ Rule & Dom. & Effect & Conditions & Oracle & $B=512$ & $B=4096$\\
 
 \paragraph{Operational use} What a domain receives is, for each of its rules and each undecided request, a set of flags with the guarantees of Table~\ref{tab:guarantees}: ``no conflict'' and ``not redundant'' are certain, a reported gap is certain, and a reported conflict or redundancy is a finding to review that may be a collision. Under an XACML combining algorithm~\cite{oasis2013xacml} a conflict still yields one decision, but the algorithm that resolves a cross-domain conflict is usually chosen by none of the parties, so the conflict means that one domain's intent is overridden without its knowledge. We therefore report conflicts as findings, not as errors. Flags on a rule do not reveal which foreign rule caused them; after a finding, the domains concerned can compare the two rules bilaterally.
 
-\paragraph{Cost compared with cryptographic protocols} An exact private protocol must decide overlap or subsumption for every pair of rules of different domains: $O(n_dn_{d'})$ secure evaluations of an $A$-attribute conjunction per pair of domains, each interactive. Private set intersection~\cite{freedman2004efficient} does not apply directly, because overlap and subsumption are not set equality. \name uploads $\sum_r|e(r)|$ counts per domain and needs no interaction beyond aggregation; its price is the exposure measured in Section~\ref{sec:sketch}. We did not implement a cryptographic baseline. Computing only the per-bin minimum of Eq.~\eqref{eq:conj} under multi-party computation would combine the linear upload of \name with secrecy, and is the most direct way to remove the leakage.
+\paragraph{Cost compared with cryptographic protocols} An exact private protocol must decide overlap or subsumption for every pair of rules of different domains: $O(n_dn_{d'})$ secure evaluations of an $A$-attribute conjunction per pair of domains, each interactive. Private set intersection~\cite{freedman2004efficient} does not apply directly, because overlap and subsumption are not set equality. \name uploads $\sum_r|e(r)|$ counts per domain and needs no interaction beyond aggregation; its price is the exposure measured in Section~\ref{sec:sketch}. We did not implement a cryptographic baseline; Section~\ref{sec:mpc} gives multiplication counts for a secret-shared form of our own decoder, whose cost, unlike that of pairwise protocols, does not grow with the number of foreign rules or members.
 
 \paragraph{Several hash functions do not help} Count-min sketches reduce collisions by using several independent hash functions~\cite{cormode2005countmin}. The analogue here keeps every guarantee of Section~\ref{sec:types}: with $k$ sketches of $B/k$ bins, flag a conflict or redundancy only if all $k$ sketches flag it, and a gap if any of them does. On seed~0 at a total of 512 bins this lowers macro-F1 on all three benchmarks (Agentic \mhagenticBdxiikb{}$\to$\mhagenticBdxiike, XS-ABAC \mhxustollerBdxiikb{}$\to$\mhxustollerBdxiike, AMZ-Access \mhamazonBdxiikb{}$\to$\mhamazonBdxiike{} for $k=1\to4$), and at 4096 bins it helps on two benchmarks and hurts on XS-ABAC, while exposing more rules, since a rule is exposed if it is alone in any of the $k$ sketches. One sketch of the full size is the better use of the budget.
 
@@ -795,7 +866,7 @@ Rule & Dom. & Effect & Conditions & Oracle & $B=512$ & $B=4096$\\
 %% ============================================================================
 \section{Conclusion}
 \label{sec:conclusion}
-We formulated cross-domain policy anomaly analysis on a policy hypergraph with wildcard vertices, where matching, overlap and subsumption are incidence conditions, and showed that scope-partitioned vertex aggregates of hashed hyperedge signatures, decoded conjunctively across attributes, recover the pooled analysis without any domain reading another's rules. For each anomaly type we gave a decision rule, proofs of one-sided error and of a false-positive bound in $1/B$, an algorithm and a worked example; policy churn is absorbed by exact sparse updates. With 4096 bins the rule decoder is ahead of every non-pooling baseline on all three benchmarks (macro-F1 \mainagenticRbig, \mainxustollerRbig{} and \mainamazonRbig); with 512 bins it is ahead on two and behind a supervised baseline given audited labels on the densest one. The parameter that buys accuracy also exposes rules: with 4096 bins, \lkallBmmmmxcvi\% of the rules in a shared scope can be reconstructed by the other members of that scope. A federated, label-free learned decoder ranks findings better but decides no better, several smaller sketches do not beat one large sketch, and additive noise is not a viable privacy mechanism for this design. The next steps are secure computation of the per-bin minimum, which would keep the linear upload and remove the exposure, support for relational conditions, and an evaluation on policies collected from deployed agent platforms.
+We formulated cross-domain policy anomaly analysis on a policy hypergraph with wildcard vertices, where matching, overlap and subsumption are incidence conditions, and showed that scope-partitioned vertex aggregates of hashed hyperedge signatures, decoded conjunctively across attributes, recover the pooled analysis without any domain reading another's rules. For each anomaly type we gave a decision rule, proofs of one-sided error and of a false-positive bound in $1/B$, an algorithm and a worked example; policy churn is absorbed by exact sparse updates. With 4096 bins the rule decoder is ahead of every non-pooling baseline on all three benchmarks (macro-F1 \mainagenticRbig, \mainxustollerRbig{} and \mainamazonRbig); with 512 bins it is ahead on two and behind a supervised baseline given audited labels on the densest one. The parameter that buys accuracy also exposes rules: with 4096 bins, \lkallBmmmmxcvi\% of the rules in a shared scope can be reconstructed by the other members of that scope. A federated, label-free learned decoder ranks findings better but decides no better, several smaller sketches do not beat one large sketch, and additive noise is not a viable privacy mechanism for this design. The next steps are an implementation and security proof of the arithmetic-circuit decoder of Section~\ref{sec:mpc}, which would keep the linear upload and remove the exposure, support for relational conditions, and an evaluation on policies collected from deployed agent platforms.
 
 \section*{CRediT authorship contribution statement}
 \textbf{Mokhtar Sellami}: Conceptualization, Methodology, Software, Validation, Writing.

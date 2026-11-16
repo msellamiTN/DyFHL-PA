@@ -1,0 +1,71 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,xcolor,enumitem,xr}
+\externaldocument{main}
+\input{generated/numbers}
+\input{generated/revision_numbers}
+\newcommand{\name}{DyFHL-PA}
+\newcommand{\R}{\textsc{r}}
+\newcommand{\concern}[2]{\medskip\noindent\textbf{#1}\quad\emph{#2}\par\smallskip}
+\newcommand{\resp}{\noindent\textcolor{blue!55!black}{\textbf{Response.}}\ }
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parindent}{0pt}\setlength{\parskip}{4pt}
+\begin{document}
+\begin{center}
+{\Large\bfseries Response to the Reviewer}\\[4pt]
+Manuscript: ``DyFHL-PA: Dynamic Federated Hypergraph Sketching for Cross-Domain Access Control Policy Anomaly Analysis in Agentic Distributed Environments'' (revised title)\\
+Recommendation received: major revision
+\end{center}
+
+We thank the reviewer for the careful reading, for checking every proof, and for a report that separates what is sound from what must change. We address every point. Section, table, figure and proposition numbers refer to the revised manuscript. Where we could not do what was asked, we say so.
+
+\section*{Summary of changes}
+\begin{itemize}
+\item \textbf{Title} changed to ``\ldots Hypergraph Sketching \ldots'', as the reviewer proposed (Major 2).
+\item \textbf{New Section~\ref{sec:mpc}}: the decoder as an arithmetic circuit over secret shares, checked to give exactly the flags of the rule decoder, with multiplication counts and a communication estimate (Table~\ref{tab:mpc}) (Major 1 and 4).
+\item \textbf{Section~\ref{sec:privacy}} extended: deployment scenarios in which the plain protocol is and is not appropriate; exposure under updates; two-member scopes, empty contributions and collusion; effect of deviating members on the one-sided guarantees (Major 1, Minor 5 and 9).
+\item \textbf{New Table~\ref{tab:fp}} and a paragraph on choosing $B$: measured false-positive rate against the bound, and guidance as a function of the number of foreign rules; discussion of the density of XS-ABAC (Major 3, Minor 7).
+\item \textbf{Notation table} (Table~\ref{tab:notation}); abstract and Table~\ref{tab:main} now report the same numbers; context size quantified (Minor 5 and 8).
+\end{itemize}
+
+\section*{Major concerns}
+
+\concern{1. Privacy guarantees are weak; the security model is not met as stated.}{}
+\resp We agree that this is the central issue, and we took both routes the reviewer offered, as far as we honestly could.
+
+\emph{Reframing.} The paper now states where reconstruction of 66--95\% of shared-scope rules by the other members is acceptable (units of one enterprise or a consortium under contract, which trust each other with shared-scope content but have no common repository and must keep out-of-scope policies and rule ownership private) and where it is not (competitors, mutually distrusting tenants); see Section~\ref{sec:privacy}, paragraph ``Where the plain protocol is appropriate''. While revising we found that the exposure figures understate the leakage in the dynamic setting, and we report it: a member that subtracts two consecutive contexts isolates the changed rules, and with 5\% of rules replaced per step \rvupdlxiv\%, \rvupddxii\% and \rvupdmmmmxcvi\% of the inserted rules are exposed at $B=64$, 512 and 4096 (paragraph ``Updates expose more than a static context''). We also state that two-member scopes hide no ownership and that $m-1$ colluding members recover the remaining aggregate.
+
+\emph{Secure computation.} New Section~\ref{sec:mpc} writes the rule decoder as an arithmetic circuit over $\mathbb{F}_p$: aggregation is addition of shares, the conjunction over attributes is a product, the maximum over bins is a randomly masked sum, and one zero test per rule and channel yields the flag. We evaluated the circuit on all three benchmarks at $B=512$ and $B=4096$: its flags are identical to those of the rule decoder for every rule and request (Table~\ref{tab:mpc}). A domain with 400 rules needs 5--8 million multiplications at $B=512$ (about 0.2~GB of online communication with Beaver triples) and 39--65 million at $B=4096$ (1.2--2.1~GB). We must be clear about the limits: this is a plaintext evaluation of the circuit with a cost estimate, not a networked MPC implementation, and three questions are open and listed in the section (hiding which context entries a rule selects, leakage of flags through adaptive queries, triple preprocessing and a security proof). We believe this is the prototype-level evidence the reviewer asked for, and we do not claim more.
+
+\concern{2. The ``learning'' framing is overemphasised.}{}
+\resp We agree. The title now reads ``Dynamic Federated Hypergraph Sketching''. The abstract and the contribution list already presented the rule decoder as the method and the learned decoder as an option that improves ranking but not decisions; the discussion paragraph ``Learning plays a secondary role'' is unchanged.
+
+\concern{3. The XS-ABAC deficit at $B=512$ needs practical guidance and a discussion of realism.}{}
+\resp Section~\ref{sec:sketch} has a new paragraph ``Measured false alarms and the choice of $B$'' and Table~\ref{tab:fp}. With about one hundred foreign rules per effect and scope, the measured false-positive rate of conflict detection is 12--55\% at $B=512$, 2--16\% at $B=4096$ and 0.5--4\% at $B=16384$, XS-ABAC being the worst case throughout. The guidance we give is $B$ of at least 30--40 times the number of foreign rules per scope and effect for sparse policies and more than 100 times for policies as dense as XS-ABAC, with the explicit warning that nearly all shared-scope rules are exposed at those sizes unless the decoder of Section~\ref{sec:mpc} is used. On realism: we do not know whether real multi-organisation policies are that dense. In XS-ABAC 74\% of rules conflict with a rule of another domain because many rules are generated over the few attributes of four small case studies; we now describe it as a stress test.
+
+\concern{4. No cryptographic baseline, even at complexity level.}{}
+\resp Partly addressed. Table~\ref{tab:mpc} quantifies the cost of a secret-shared form of our own decoder, and the discussion contrasts it with pairwise protocols, whose cost grows with the product of the policy sizes of every pair of domains, while ours is independent of the number of foreign rules and members. We did not implement a pairwise secure-comparison baseline, and the paper says so. We consider this the main experiment still missing.
+
+\section*{Minor concerns}
+
+\concern{5. Multi-scope interaction, context size, edge cases.}{}
+\resp Section~\ref{sec:method} (complexity) now gives the dense size of an aggregate (\skagenticdensekBdxii~kB at $B=512$ and \skagenticdensekBsixteenk~kB at $B=16384$ on Agentic) and notes that a sparse encoding is bounded by the incidences of the foreign rules; it states that scopes do not interact, since aggregates, contexts and decisions are per scope. Section~\ref{sec:privacy} covers the edge cases: a scope has at least two members by definition; a two-member scope reveals the peer's aggregate; a member without rules in a scope uploads zeros.
+
+\concern{6. Agentic benchmark realism.}{}
+\resp Not addressed by new experiments. We have no trace of a deployed multi-organisation agent platform, and the limitation remains in the validity paragraph of Section~\ref{sec:discussion} and in the conclusion as future work. We preferred to state this than to construct a trace that would be synthetic in all but name.
+
+\concern{7. Loose false-positive bound.}{}
+\resp Table~\ref{tab:fp} reports the measured false-positive rate next to the bound for three sketch sizes and all benchmarks. The bound is close to 1 at $B=512$ and 4 to 50 times above the measured rate at larger $B$; the text now says that it is safe but too conservative to choose $B$ from.
+
+\concern{8. Presentation.}{}
+\resp (i) A notation table has been added (Table~\ref{tab:notation}). (ii) The discrepancy between abstract and main table was ours: the abstract quoted the three-seed sketch study and the table the five-seed main comparison. Both now use the five-seed values (\mainagenticRbig, \mainxustollerRbig, \mainamazonRbig). (iii) The spacing in the caption of Table~\ref{tab:guarantees} is checked. (iv) We kept the proofs in the main text: each is short, and the per-type structure (rule, proof, algorithm, example) is the reading path of Section~\ref{sec:types}. If the editor prefers, Propositions 2--6 can move to an appendix without other changes.
+
+\concern{9. Malicious members and the one-sided guarantees.}{}
+\resp Section~\ref{sec:privacy} now relates deviations to Table~\ref{tab:guarantees}: inflated counts only add false alarms and hidden gaps, so ``no conflict'', ``not redundant'' and ``gap'' stay reliable; negative counts break the no-miss guarantee, which is why non-negativity must be enforced. A full treatment of malicious security is outside what we can claim and is listed with the open questions of Section~\ref{sec:mpc}.
+
+\section*{Remaining limitations we do not claim to have resolved}
+No implemented MPC protocol or security proof; no pairwise cryptographic baseline; no real multi-organisation policy corpus or agent trace.
+\end{document}

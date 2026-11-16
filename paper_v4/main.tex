@@ -1,0 +1,422 @@
+\documentclass[preprint,12pt]{elsarticle}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs,tabularx}
+\usepackage{microtype}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\newcommand{\permit}{\mathsf{permit}}
+\newcommand{\deny}{\mathsf{deny}}
+\newcommand{\dec}{\mathrm{dec}}
+\newcommand{\obo}{\mathsf{obo}}
+\newcommand{\svc}{\mathsf{svc}}
+\newcommand{\reads}{\mathrm{reads}}
+\newcommand{\sinks}{\mathrm{sinks}}
+\newcommand{\ident}{\mathrm{id}}
+\newcommand{\Gap}{\mathrm{Gap}}
+\newcommand{\Amp}{\mathrm{Amp}}
+\newcommand{\Viol}{\mathrm{Viol}}
+\newcommand{\pending}[1]{\par\noindent\fbox{\parbox{0.97\linewidth}{\small\textbf{Not yet drafted.} #1}}\par}
+
+\journal{Computers \& Security}
+
+\begin{document}
+\begin{frontmatter}
+\title{Composed Policy Analysis for Agent-Consumed Services and Data Platforms: A Hypergraph Model, Exact Checks and Cross-Organisation Protocol}
+\author{Author names and affiliations to be decided}
+
+\begin{abstract}
+\textbf{Working draft, 15 November 2026.} Sections 3 to 6 are drafted; the other sections are marked as not yet drafted. The abstract will be written last.
+\end{abstract}
+\begin{keyword}
+access control \sep usage control \sep policy analysis \sep AI agents \sep tool governance \sep privilege amplification
+\end{keyword}
+\end{frontmatter}
+
+\section{Introduction}
+Zero trust architectures turn every access into an explicit policy decision, and for applications spread over several clouds those decisions rest on the identities of services as well as of users~\cite{nist800207a}. The policies that carry these decisions are no longer in one place. An application has its permissions, a gateway its allow-list, a data platform its grants on tables, rows and columns, and a data owner its terms of use. Each of these is written, enforced and audited by a different team or a different organisation.
+
+AI agents make the separation visible. An agent answers a person's request by calling tools, and a tool reaches a service or a data platform under some identity, which is often not the person's. One invocation therefore crosses several policies in sequence. Every component can apply its own policy correctly while the outcome contradicts what the owners intended: a person is allowed to call a tool whose access is then refused, or, if the tool acts under a service account, obtains data that was never granted to that person. The second case is the confused deputy described by Hardy~\cite{hardy1988deputy}, reached here without any software fault, by composition of valid policies.
+
+Existing analysis does not look at this composition across owners. Policy verification and change-impact analysis treat one policy set in one language~\cite{fisler2005margrave,backes2018zelkova}. The closest work on composition models how one cloud provider's authorization engine combines several types of policy and verifies properties over all of them~\cite{barnett2025authz}; it concerns one provider's policy types and takes the policies as input. Work on policy quality defines the properties a policy should have and names their analysis in distributed settings as open~\cite{bertino2018quality}. Work on collaboration between clouds generates rules that avoid leakage instead of auditing the rules that exist~\cite{john2026multicloud}. None of these addresses tools as objects of policy, the identity under which a tool acts, or owners who do not show each other their policies.
+
+This paper studies the combined policies of the tool layer, the data layer and the usage layer as one object. Its contributions are the following.
+\begin{enumerate}
+\item A model in which rules of the three layers, tool descriptions and logged calls are hyperedges over attribute-value vertices, with wildcard vertices that give rules a canonical form (Section~\ref{sec:model}).
+\item Seven anomalies of a composed policy, four inherited from policy quality and three specific to tools and delegation, with their properties: a duality showing that replacing the user's identity by a service account converts every access gap into a privilege amplification on the same users and resources; locality of the effect of a tool change; attenuation of authority along delegation chains; coNP-completeness of universal coverage; and exact incremental maintenance (Section~\ref{sec:theory}).
+\item Algorithms for the exact checks and their maintenance under change, implemented in an open library and tested against brute force (Section~\ref{sec:algorithms}).
+\item An evaluation on 1,686 real cloud policies, including a measurement of the duality between human job-function policies and policies written for AI agents (Section~\ref{sec:evaluation}).
+\item An analysis across organisations that do not disclose their policies (Section~\ref{sec:cross}).
+\end{enumerate}
+The fifth contribution is designed but not yet implemented in this draft.
+
+
+\section{Background and related work}
+\pending{Formal policy analysis; policy quality and behaviour; analysis across owners; usage control; agents and tools; comparison table. Waits for the full reading of the primary sources.}
+
+%=====================================================================
+\section{Setting and problem statement}\label{sec:setting}
+
+\subsection{Running example}\label{sec:example}
+Organisation $A$ operates an agent platform. Its staff ask an assistant questions, and the assistant answers by calling tools. Organisation $B$ operates a data platform that holds sales and human-resources data and exposes them through three tools: \texttt{query\_sales}, \texttt{export\_report} and \texttt{query\_hr}. $A$ decides who may call which tool. $B$ decides which identity may read which data and what may be done with the data afterwards.
+
+Two kinds of staff use the assistant. Analysts have an account on the data platform and may read sales data there. Business users have no account on the data platform. To let business users benefit from the assistant, the tools can be configured to run under an application account that $B$ has granted access to sales and human-resources data.
+
+Three facts follow, and none of them is visible to either organisation alone. If the tools act with the caller's identity, business users are allowed to call \texttt{query\_sales} by $A$ and refused by $B$. If the tools act as the application account, the same business users obtain sales data they were never granted, and anyone allowed to call \texttt{query\_hr} obtains human-resources data. Finally, if \texttt{export\_report} is later changed to send its output to a third party, $A$'s approval of the tool and $B$'s restriction on where sales data may go disagree, and nothing in either policy records the change. The model below makes these three situations precise; Section~\ref{sec:theory} shows that the first two are the same set seen from two sides.
+
+\subsection{System model}
+A set $O$ of organisations shares an environment. Each organisation owns some users, agents, tools and resources, writes the policies that govern what it owns, and keeps a log of the calls it observes. We distinguish three policy \emph{layers}, following the three decisions an invocation crosses.
+\begin{itemize}
+\item The \emph{tool layer} decides whether a user, through an agent, may call a tool. It is typically held by the organisation that operates the agent platform or the tool gateway.
+\item The \emph{data layer} decides whether an identity may access a resource. It is held by the organisation that operates the service or data platform.
+\item The \emph{usage layer} decides for which purpose, towards which destination and for how long a resource may be used once accessed. It is held by the owner of the resource and follows usage control in the sense of Park and Sandhu~\cite{park2004ucon}.
+\end{itemize}
+A tool is described by what it reads, where it sends what it read, and the identity under which it acts. An invocation is therefore a tuple of a user, a chain of agents, a tool, an effective identity, a resource, a use and a destination; no pair of these elements determines whether it should be allowed.
+
+\subsection{Problems addressed}
+Let $\Pi$ denote the policies of all layers and organisations and $D$ the tool descriptions. This paper addresses three problems.
+\begin{description}
+\item[P1, composition analysis.] Given $\Pi$ and $D$, compute the anomalies of the composed policy: conflicts, redundancies, gaps, privilege amplifications, usage violations and drift, and, given a log, the rules that no logged request exercised.
+\item[P2, continuous analysis.] Maintain that set of anomalies when a rule or a tool description changes, at a cost that depends on the change and not on the size of $\Pi$.
+\item[P3, analysis across organisations.] Compute for each organisation the anomalies that involve its own rules and tools, when no organisation discloses its policies to another.
+\end{description}
+Sections~\ref{sec:model} to~\ref{sec:algorithms} treat P1 and P2. Section~\ref{sec:cross} treats P3. Estimating which requests will occur in the future, which bears on relevance and completeness, is outside the scope of this paper.
+
+%=====================================================================
+\section{The policy hypergraph model}\label{sec:model}
+
+\subsection{Attributes, rules and matching}
+Each layer $\ell \in \{\mathsf{tool}, \mathsf{data}, \mathsf{usage}\}$ has a finite set $A_\ell$ of attributes, and each attribute $a$ has a finite domain $D_a$. Attributes are qualified by the role of the entity they describe, for instance \textit{usr.role}, \textit{tool.name}, \textit{res.class} or \textit{sink.region}. Hierarchies, numeric ranges and negated values are reduced beforehand to disjoint atoms, so that a condition on an attribute is a set of atoms. A \emph{request} of layer $\ell$ assigns one value to every attribute of $A_\ell$; $Q_\ell = \prod_{a \in A_\ell} D_a$ is the set of requests.
+
+\begin{definition}[Rule]\label{def:rule}
+A rule is a tuple $e = (\ell, o, x, c, b)$ where $\ell$ is a layer, $o \in O$ the owner, $x \in \{\permit, \deny\}$ the effect, $c$ a condition that maps every $a \in A_\ell$ to a non-empty set $c(a) \subseteq D_a$, and $b$ a finite set of obligations. The rule \emph{matches} a request $q \in Q_\ell$ when $q(a) \in c(a)$ for every $a$. Its match set is
+\begin{equation}
+M(e) = \prod_{a \in A_\ell} c(a). \label{eq:matchset}
+\end{equation}
+\end{definition}
+An attribute the rule does not constrain has $c(a) = D_a$. Obligations are bounds or duties attached to the rule, such as a maximal or minimal retention period, logging, or approval by a person.
+
+\begin{definition}[Policy hypergraph]\label{def:hypergraph}
+The vertex set $V$ contains one vertex $(a, v)$ for every attribute $a$ and value $v \in D_a$, and one wildcard vertex $(a, \ast)$ for every attribute. A rule $e$ of layer $\ell$ is the hyperedge
+\begin{align*}
+h(e) ={}& \{(a, v) : a \in A_\ell,\ c(a) \neq D_a,\ v \in c(a)\}\\
+& \cup\ \{(a, \ast) : a \in A_\ell,\ c(a) = D_a\}.
+\end{align*}
+A request $q$ is the hyperedge $\{(a, q(a)) : a \in A_\ell\}$.
+\end{definition}
+Rules, logged calls and, as defined below, tool descriptions are thus sets of vertices of one structure. The wildcard vertices give a canonical form: a condition that lists every value of an attribute and a condition that leaves the attribute open denote the same match set and are mapped to the same hyperedge. Without this normal form the syntactic tests of Section~\ref{sec:pairwise} are incomplete, as randomised testing of an earlier implementation showed.
+
+\subsection{Decisions}
+A layer may contain permit and deny rules that match the same request. Let $E_\ell$ be the rules of layer $\ell$ and $E_\ell(q)$ those that match $q$. A \emph{combining function} $\kappa$ maps the sequence of effects of $E_\ell(q)$ to a decision, with $\kappa$ of the empty sequence equal to $\deny$; deny-overrides, permit-overrides and first-applicable are the usual choices~\cite{oasis2013xacml}. The decision of layer $\ell$ on $q$ is
+\begin{equation}
+\dec_\ell(q) = \kappa\bigl(E_\ell(q)\bigr) \in \{\permit, \deny\}. \label{eq:decision}
+\end{equation}
+Each layer may use its own combining function. All results of Section~\ref{sec:theory} that concern decisions hold for any $\kappa$.
+
+\subsection{Identities, tools and bindings}
+Users and service accounts are described by the same identity attributes; $I$ denotes the set of identity attribute vectors, $U \subseteq I$ those of users. A tool-layer request is a pair $(u, t)$ of a user vector and a tool; a data-layer request is a pair $(i, r)$ of an identity vector and a resource; a usage-layer request is a triple $(r, p, s)$ of a resource, a purpose and a sink, where a sink records the receiving organisation and region.
+
+\begin{definition}[Tool description]\label{def:tool}
+A tool description is a tuple
+\[
+d(t) = \bigl(\reads(t),\ p_t,\ \rho_t,\ \sinks(t),\ \beta_t\bigr),
+\]
+consisting of the set of resources the tool reads, its purpose, the time it retains what it read, the set of sinks it sends to, and its binding, which is either $\obo$ or $\svc(c)$ for some $c \in I$. The \emph{effective identity} of a call by user $u$ is
+\[
+\ident_{\beta_t}(u) = \begin{cases} u & \text{if } \beta_t = \obo \text{ (on behalf of the user)},\\ c & \text{if } \beta_t = \svc(c) \text{ (service account } c\text{)}. \end{cases}
+\]
+\end{definition}
+A tool has up to three descriptions: the \emph{approved} one $d_0(t)$ recorded when the tool was authorised, the \emph{declared} one $d_1(t)$ currently published by the tool, and the \emph{observed} one $\hat d(t)$ reconstructed from logged calls.
+
+\subsection{Delegation chains}
+An agent may hand a task to another agent. A \emph{chain} is a sequence $\pi = (p_0, p_1, \dots, p_k)$ of principals in which $p_0$ is the initiating user and $p_j$ acts at the request of $p_{j-1}$. Write $P(p)$ for the set of data-layer requests $(p, r)$ that are permitted, identified with the set of resources $p$ may access.
+
+\begin{example}\label{ex:model}
+In the running example the tool layer of $A$ contains a rule permitting \textit{usr.role} $\in \{\textit{analyst}, \textit{business}\}$ to call \textit{tool.name} $= \texttt{query\_sales}$. The data layer of $B$ contains a rule permitting \textit{id.role} $= \textit{analyst}$ on \textit{res.class} $= \textit{sales}$ and one permitting the application account on \textit{res.class} $\in \{\textit{sales}, \textit{hr}\}$. The usage layer of $B$ permits \textit{sales} towards sinks in $A$ or $B$ and denies any resource towards a third party. The tool \texttt{query\_sales} reads $\{\textit{sales}\}$ and sends to $A$.
+\end{example}
+
+%=====================================================================
+\section{Anomalies and their properties}\label{sec:theory}
+
+Bertino et al.\ characterise the quality of access control policies by consistency, minimality, relevance and completeness, among other dimensions~\cite{bertino2018quality}. The first four anomalies below are violations of these four dimensions, stated for a layered policy. The remaining three arise from tools and delegation and have no counterpart in a single policy set.
+
+\subsection{Anomalies inside a layer}\label{sec:pairwise}
+\begin{definition}[Conflict and redundancy]\label{def:pair}
+Let $e_1, e_2$ be rules of the same layer. They \emph{conflict} when $M(e_1) \cap M(e_2) \neq \emptyset$ and either their effects differ or their obligations cannot both be met, for instance a minimal retention in one above a maximal retention in the other. Rule $e_1$ is \emph{redundant with respect to} $e_2$ when both have the same effect and obligations and $M(e_1) \subseteq M(e_2)$.
+\end{definition}
+Whether a conflict changes a decision depends on the combining function; the definition reports the pair in either case, because the pair records two owners' incompatible intentions. Redundancy is defined against a single rule. A rule covered only by the union of several others is not reported; Theorem~\ref{thm:hard} explains why that stronger notion is costly.
+
+\begin{lemma}[Overlap]\label{lem:overlap}
+$M(e_1) \cap M(e_2) \neq \emptyset$ if and only if $c_1(a) \cap c_2(a) \neq \emptyset$ for every $a \in A_\ell$.
+\end{lemma}
+\begin{proof}
+By \eqref{eq:matchset}, $M(e_1) \cap M(e_2) = \prod_a \bigl(c_1(a) \cap c_2(a)\bigr)$, and a product of sets is non-empty exactly when every factor is.
+\end{proof}
+
+\begin{lemma}[Subsumption]\label{lem:subsume}
+$M(e_1) \subseteq M(e_2)$ if and only if $c_1(a) \subseteq c_2(a)$ for every $a \in A_\ell$.
+\end{lemma}
+\begin{proof}
+If every $c_1(a) \subseteq c_2(a)$ the inclusion of the products is immediate. Conversely, suppose $v \in c_1(a_0) \setminus c_2(a_0)$ for some $a_0$. Since every $c_1(a)$ is non-empty, there is a request $q \in M(e_1)$ with $q(a_0) = v$, and $q \notin M(e_2)$.
+\end{proof}
+On the hypergraph both conditions are local: overlap requires, for every attribute, a shared value vertex or a wildcard on one side; subsumption requires the value vertices of $e_1$ on each attribute to be among those of $e_2$, or $e_2$ to carry the wildcard.
+
+\begin{definition}[Unexercised rule]\label{def:irrelevant}
+Given a log $L \subseteq Q_\ell$, a permit rule $e$ of layer $\ell$ is \emph{unexercised} when no request of $L$ matches it.
+\end{definition}
+The definition is restricted to permit rules, since a deny rule that never fired may be a safeguard. An unexercised rule is a candidate violation of relevance for the period the log covers; whether it will remain unexercised is a forecasting question that this paper does not address.
+
+\subsection{Anomalies across layers}
+\begin{definition}[Gap and privilege amplification]\label{def:cross}
+Let $S \subseteq U$ be a population of user vectors. For a tool $t$ with binding $\beta$ write $i = \ident_\beta(u)$. Then
+\begin{align}
+\Gap_\beta(S, t) = \{(u, r) :{}& u \in S,\ r \in \reads(t),\ \dec_{\mathsf{tool}}(u, t) = \permit, \notag\\
+& \dec_{\mathsf{data}}(i, r) = \deny\}, \label{eq:gap}\\
+\Amp_\beta(S, t) = \{(u, r) :{}& u \in S,\ r \in \reads(t),\ \dec_{\mathsf{tool}}(u, t) = \permit, \notag\\
+& \dec_{\mathsf{data}}(i, r) = \permit,\ \dec_{\mathsf{data}}(u, r) = \deny\}. \label{eq:amp}
+\end{align}
+\end{definition}
+A gap is a violation of completeness seen across layers: one owner authorises a call that another owner's policy makes fail. A privilege amplification is the confused-deputy situation~\cite{hardy1988deputy}: the tool obtains for the user what the user's own identity is refused.
+
+\begin{theorem}[Gap--amplification duality]\label{thm:duality}
+Let $t$ be a tool, $c \in I$ a service account, and $R_c(t) = \{r \in \reads(t) : \dec_{\mathsf{data}}(c, r) = \permit\}$. For every population $S$ and every combining function:
+\begin{enumerate}
+\item $\Amp_{\obo}(S, t) = \emptyset$;
+\item $\Gap_{\svc(c)}(S, t)$ contains no pair $(u, r)$ with $r \in R_c(t)$;
+\item restricted to resources of $R_c(t)$, $\Amp_{\svc(c)}(S, t) = \Gap_{\obo}(S, t)$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+Under $\obo$ the effective identity is $u$, so \eqref{eq:amp} would require $\dec_{\mathsf{data}}(u, r)$ to be both $\permit$ and $\deny$; this proves (1), and \eqref{eq:gap} becomes $\{(u, r) : \dec_{\mathsf{tool}}(u, t) = \permit,\ \dec_{\mathsf{data}}(u, r) = \deny\}$. Under $\svc(c)$ the effective identity is $c$. For $r \in R_c(t)$ we have $\dec_{\mathsf{data}}(c, r) = \permit$, so no pair with such $r$ satisfies \eqref{eq:gap}, which proves (2), and the two conditions of \eqref{eq:amp} on the effective identity and on the user reduce to $\dec_{\mathsf{data}}(u, r) = \deny$. The resulting set is the one obtained for $\Gap_{\obo}$, restricted to $R_c(t)$. Only decisions were used, so the statement does not depend on $\kappa$.
+\end{proof}
+
+\begin{corollary}\label{cor:invariant}
+For a tool $t$ and the resources of $R_c(t)$, the number of pairs that are a gap or an amplification is the same under $\obo$ and under $\svc(c)$. It can be reduced only by changing a policy: granting the users access at the data layer, or narrowing who may call the tool.
+\end{corollary}
+In the running example, letting the tools act as the application account removes every refusal that business users experienced and creates, for exactly the same users and resources, an access they were not granted. The first is visible to users as an error; the second is visible to nobody.
+
+\subsection{Usage violations and drift}
+Let $\rho^{\max}(r)$ be the maximal retention the owner of $r$ allows, when one is set.
+\begin{definition}[Usage violation]\label{def:usage}
+For a tool description $d(t)$,
+\begin{multline}
+\Viol(d(t)) = \{(t, r, s) : r \in \reads(t),\ s \in \sinks(t),\ \dec_{\mathsf{usage}}(r, p_t, s) = \deny\}\\
+\cup\ \{(t, r, \rho_t) : r \in \reads(t),\ \rho_t > \rho^{\max}(r)\}. \label{eq:viol}
+\end{multline}
+\end{definition}
+\begin{definition}[Drift]\label{def:drift}
+A tool exhibits \emph{definition drift} when $d_1(t) \neq d_0(t)$ and \emph{behavioural drift} when the observed description reads a resource or uses a sink that the declared one does not list. The \emph{impact} of a drift is the symmetric difference between the gaps, amplifications and usage violations computed with the two descriptions.
+\end{definition}
+
+\begin{theorem}[Drift locality]\label{thm:local}
+Replacing the description of a tool $t$ leaves unchanged all conflicts, redundancies and unexercised rules, and all gaps, amplifications and usage violations of every other tool.
+\end{theorem}
+\begin{proof}
+Definitions~\ref{def:pair} and~\ref{def:irrelevant} refer to rules and logs only. Each element of \eqref{eq:gap}, \eqref{eq:amp} and \eqref{eq:viol} is indexed by one tool, and the conditions that define it read the rules and the description of that tool alone.
+\end{proof}
+
+\begin{proposition}[Observation only adds findings]\label{prop:observe}
+If $\hat d(t)$ and $d_1(t)$ differ only in that $\sinks(\hat d(t)) \supseteq \sinks(d_1(t))$ and $\reads(\hat d(t)) \supseteq \reads(d_1(t))$, then $\Viol(\hat d(t)) \supseteq \Viol(d_1(t))$.
+\end{proposition}
+\begin{proof}
+Both parts of \eqref{eq:viol} are unions over the read resources and, for the first part, over the sinks.
+\end{proof}
+A fingerprint of the description detects that a tool changed. Definition~\ref{def:drift} adds what the change makes possible, and Theorem~\ref{thm:local} bounds the work needed to find out to the checks that involve that tool.
+
+\subsection{Delegation chains}
+\begin{definition}[Intended and exercised authority]\label{def:chain}
+For a chain $\pi = (p_0, \dots, p_k)$ the \emph{intended authority} is $I(\pi) = \bigcap_{j=0}^{k} P(p_j)$. If $X(\pi)$ is the set of resources the chain actually accesses, its amplification is $\Amp(\pi) = X(\pi) \setminus I(\pi)$.
+\end{definition}
+\begin{theorem}[Attenuation]\label{thm:chain}
+For every chain and every $j < k$, $I(p_0, \dots, p_{j+1}) \subseteq I(p_0, \dots, p_j) \subseteq P(p_0)$. For the chain $(u, c)$ in which the service account exercises all its rights, $\Amp(\pi) = P(c) \setminus P(u)$, which coincides with Definition~\ref{def:cross} on the resources a tool reads.
+\end{theorem}
+\begin{proof}
+Intersecting with a further set cannot enlarge a set, and $I(p_0) = P(p_0)$. For $\pi = (u, c)$ with $X(\pi) = P(c)$, $X(\pi) \setminus (P(u) \cap P(c)) = P(c) \setminus P(u)$.
+\end{proof}
+
+\subsection{Populations and the cost of universal statements}
+The sets \eqref{eq:gap} and \eqref{eq:amp} depend on the population $S$. Two populations matter in practice: the user directory of an organisation, and the set of all attribute vectors that the rules distinguish.
+
+\begin{theorem}[Potential findings cover confirmed ones]\label{thm:potential}
+For $S \subseteq S' \subseteq U$ and every tool, $\Gap_\beta(S, t) = \Gap_\beta(S', t) \cap (S \times \reads(t))$, and likewise for $\Amp_\beta$.
+\end{theorem}
+\begin{proof}
+Membership of $(u, r)$ in either set is a condition on $u$, $t$ and $r$ only.
+\end{proof}
+Findings computed on the directory are \emph{confirmed}: they concern identities that exist. Findings computed on all vectors are \emph{potential}: they include every confirmed finding and, in addition, combinations of attributes that no current user has.
+
+\begin{theorem}[Universal coverage is coNP-complete]\label{thm:hard}
+Deciding whether a set of permit rules of one layer matches every request of that layer is coNP-complete, already when all domains have two values.
+\end{theorem}
+\begin{proof}
+A request matched by no rule is a certificate of a negative answer that can be checked in polynomial time, so the problem is in coNP. For hardness we reduce from the tautology problem for formulas in disjunctive normal form, which is coNP-complete~\cite{garey1979intractability}. Take one attribute with domain $\{\mathit{true}, \mathit{false}\}$ per variable and one permit rule per term, whose condition is $\{\mathit{true}\}$ on the variables that occur positively in the term, $\{\mathit{false}\}$ on those that occur negatively, and the whole domain elsewhere. A request is matched by the rule of a term exactly when the corresponding assignment satisfies the term. Hence every request is matched if and only if the formula is a tautology.
+\end{proof}
+Consequently, proving that no possible user can experience a gap, or that a rule is covered by the union of others, is intractable in the number of attributes. Evaluating \eqref{eq:gap} and \eqref{eq:amp} on a given population is not: it costs one decision per element. This is the reason for reporting confirmed and potential findings separately instead of attempting a universal guarantee.
+
+\subsection{Change}
+\begin{theorem}[Exact incremental maintenance]\label{thm:incremental}
+After the insertion or deletion of a rule $e$ of layer $\ell$: (i) the conflict and redundancy relations change only on pairs that contain $e$; (ii) the status of an unexercised rule changes only for $e$; (iii) a pair $(u, r)$ enters or leaves a gap or an amplification of a tool $t$ only if the request it induces in layer $\ell$ belongs to $M(e)$, where the induced requests are $(u, t)$ for the tool layer and $(u, r)$ and $(\ident_\beta(u), r)$ for the data layer; (iv) a usage violation changes only if its usage request belongs to $M(e)$. After a change of a tool description, Theorem~\ref{thm:local} applies.
+\end{theorem}
+\begin{proof}
+A pair of rules that does not contain $e$ has unchanged match sets, effects and obligations. By \eqref{eq:decision}, $\dec_\ell(q)$ depends on the rules that match $q$, so it can change only for $q \in M(e)$; the membership conditions of \eqref{eq:gap}, \eqref{eq:amp} and \eqref{eq:viol} are conjunctions of such decisions.
+\end{proof}
+
+%=====================================================================
+\section{Exact analysis}\label{sec:algorithms}
+
+\subsection{Pairwise analysis}
+Algorithm~\ref{alg:pair} computes conflicts and redundancies within a layer. Comparing all pairs costs $O(n^2 m)$ for $n$ rules over $m$ attributes. The algorithm reduces the number of comparisons with a pivot attribute: by Lemmas~\ref{lem:overlap} and~\ref{lem:subsume}, two rules that overlap, or of which one subsumes the other, share at least one value of every attribute, in particular of the pivot. A rule that leaves the pivot open is placed in every bucket.
+
+\begin{algorithm}[t]
+\caption{Pairwise analysis of one layer}\label{alg:pair}
+\begin{algorithmic}[1]
+\Require rules $E_\ell$ in normal form, pivot attribute $a^\star$
+\Ensure conflict pairs $C$, redundancy pairs $R$
+\State $C \gets \emptyset$; $R \gets \emptyset$; $B[v] \gets \emptyset$ for all $v \in D_{a^\star}$
+\ForAll{$e \in E_\ell$}
+  \ForAll{$v \in c_e(a^\star)$} \State add $e$ to $B[v]$ \EndFor
+\EndFor
+\ForAll{unordered pairs $\{e_1, e_2\}$ that occur together in some $B[v]$, each taken once}
+  \If{$c_1(a) \cap c_2(a) \neq \emptyset$ for all $a$}
+    \If{effects differ \textbf{or} obligations are incompatible} \State add $\{e_1, e_2\}$ to $C$ \EndIf
+  \EndIf
+  \If{effects and obligations are equal}
+    \If{$c_1(a) \subseteq c_2(a)$ for all $a$} \State add $(e_1, e_2)$ to $R$
+    \ElsIf{$c_2(a) \subseteq c_1(a)$ for all $a$} \State add $(e_2, e_1)$ to $R$ \EndIf
+  \EndIf
+\EndFor
+\State \Return $C, R$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Cross-layer analysis}
+Algorithm~\ref{alg:cross} evaluates Definition~\ref{def:cross} on a population. Run on the user directory it returns confirmed findings; run on the attribute vectors that the rules distinguish it returns potential findings (Theorem~\ref{thm:potential}). Its cost is $O(|S| \cdot \sum_t |\reads(t)| \cdot (n_{\mathsf{tool}} + n_{\mathsf{data}}) \cdot m)$, which an index from attribute values to rules reduces in the same way as in Algorithm~\ref{alg:pair}.
+
+\begin{algorithm}[t]
+\caption{Gaps and privilege amplifications}\label{alg:cross}
+\begin{algorithmic}[1]
+\Require tool-layer and data-layer rules, tools with descriptions, population $S$
+\Ensure sets $\Gap$ and $\Amp$
+\ForAll{$u \in S$ and tools $t$ with $\dec_{\mathsf{tool}}(u, t) = \permit$}
+  \State $i \gets \ident_{\beta_t}(u)$
+  \ForAll{$r \in \reads(t)$}
+    \If{$\dec_{\mathsf{data}}(i, r) = \deny$} \State add $(u, t, r)$ to $\Gap$
+    \ElsIf{$\dec_{\mathsf{data}}(u, r) = \deny$} \State add $(u, t, r)$ to $\Amp$ \EndIf
+  \EndFor
+\EndFor
+\State \Return $\Gap, \Amp$
+\end{algorithmic}
+\end{algorithm}
+
+For a delegation chain the same loop is applied with the intended authority of Definition~\ref{def:chain} in place of the user's permissions.
+
+\subsection{Usage and drift}
+Usage violations are obtained by evaluating \eqref{eq:viol} for every tool, at a cost of $O(\sum_t |\reads(t)| \cdot |\sinks(t)| \cdot n_{\mathsf{usage}} \cdot m)$. The drift report of a tool consists of three parts: whether $d_1(t)$ differs from $d_0(t)$; the impact of that difference, computed by running Algorithm~\ref{alg:cross} and \eqref{eq:viol} for $t$ alone with each description; and the findings that appear only with $\hat d(t)$, which by Proposition~\ref{prop:observe} are additions.
+
+\subsection{Maintenance under change}
+Theorem~\ref{thm:incremental} turns directly into a procedure. When a rule $e$ is inserted or deleted, the pairs containing $e$ are recomputed with Lemmas~\ref{lem:overlap} and~\ref{lem:subsume} at a cost of $O(nm)$, and Algorithm~\ref{alg:cross} or \eqref{eq:viol} is re-run only on the requests of $M(e)$. When a tool description changes, the checks of that tool are re-run. Table~\ref{tab:cost} summarises the costs.
+
+\begin{table}[t]
+\caption{Cost of the exact checks for $n$ rules per layer, $m$ attributes, population $S$ and tools $T$. Worst case without indexing.}\label{tab:cost}
+\centering\small
+\begin{tabularx}{\linewidth}{@{}lXX@{}}
+\toprule
+Check & Full analysis & After one change \\
+\midrule
+Conflict, redundancy & $O(n^2 m)$ & $O(nm)$ for a rule \\
+Unexercised rules & $O(n\,|L|\,m)$ & $O(|L|\,m)$ for a rule \\
+Gap, amplification & $O(|S|\,|T|\,nm)$ & requests in $M(e)$, or one tool \\
+Usage violation & $O(|T|\,|\sinks|\,nm)$ & requests in $M(e)$, or one tool \\
+Universal coverage & coNP-complete (Thm.~\ref{thm:hard}) & not attempted \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%=====================================================================
+\section{Analysis across organisations}\label{sec:cross}
+\pending{Threat model, leakage definition, protocol, security argument, measured cost, comparison with a trusted auditor and with the rejected sketch. The protocol is designed but not implemented or proven.}
+
+\section{Evaluation}\label{sec:evaluation}
+The evaluation asks three questions that can be answered with the material available in this draft: whether the implementation agrees with the definitions (E1), how much of real policy text the model covers (E2), and what the cross-layer analysis yields on real policies (E3). Three further experiments, on the tool layer, on the cost of the analysis across organisations and on incremental maintenance, are not yet run.
+
+\subsection{E1: agreement with the definitions}
+The library implements Algorithms~\ref{alg:pair} and~\ref{alg:cross}, the usage and drift checks and delegation chains, with deny-overrides, permit-overrides and first-applicable combining. Each of 3,000 randomly generated instances (eight rules per layer, three tools, six user classes) is checked against an exhaustive enumeration of requests: Lemmas~\ref{lem:overlap} and~\ref{lem:subsume}, the equality of bucketed and all-pairs analysis, the three statements of Theorem~\ref{thm:duality} and Corollary~\ref{cor:invariant} under each combining function, Theorems~\ref{thm:local}, \ref{thm:chain} and~\ref{thm:potential}, and Proposition~\ref{prop:observe}. A separate test checks Theorem~\ref{thm:incremental} on 2,000 instances and the reduction of Theorem~\ref{thm:hard} on 2,000 random formulas. All checks pass. The tests found one defect during development, the missing normal form discussed after Definition~\ref{def:hypergraph}.
+
+\subsection{E2: coverage of real policies}
+We use a public archive of the identity policies that Amazon Web Services publishes and maintains for its customers: 1,686 policies with 9,602 statements (snapshot of 14 November 2026). A statement names actions, resources and optional conditions. Table~\ref{tab:fit} classifies the statements by what the model needs to represent them.
+
+\begin{table}[t]
+\caption{Statements of 1,686 real policies by fit with the attribute-set model.}\label{tab:fit}
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Class of statement & Statements & Share \\
+\midrule
+No condition, exact or service-wide actions & 2,751 & 28.7\% \\
+No condition, wildcard patterns (expanded to atoms) & 2,534 & 26.4\% \\
+Conditions that are equalities on literal values & 2,790 & 29.1\% \\
+Conditions needing pattern, null or inequality tests & 1,496 & 15.6\% \\
+Negated action or resource lists & 31 & 0.3\% \\
+\midrule
+Total & 9,602 & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The first three classes, 84.1\% of the statements, are within the model: an equality condition is one more attribute with a set of values. The implementation analyses 8,054 of them (83.9\%); the remainder are statements without an action list. The other 15.9\% need a richer condition language and are left to a solver-based analyser such as the one of Backes et al.~\cite{backes2018zelkova}.
+
+On the analysed statements the pairwise checks, applied inside each policy, report 21 redundant pairs in 18 policies and 10 pairs of an allow and a deny statement that overlap, in 9 policies. Thirteen of the redundant pairs and eight of the overlapping pairs involve a condition and would be missed without the third class. The numbers are small, as expected for policies written and maintained by one vendor, and an overlap between an allow and a deny statement is a common way of writing an exception; the experiment shows that the checks run on real text, in about half a second for the whole archive, and it is not evidence about the frequency of anomalies in customer-written policies.
+
+\subsection{E3: human job functions and agent policies}
+The archive contains eleven policies that the provider defines for human job functions, from view-only access to full administration, and policies written for AI agents that operate on a customer's resources. We selected fifteen of the latter by name and excluded policies for people who administer agents and for software agents unrelated to AI; the selection was not checked against the provider's documentation. For a job function $J$ and an agent policy $P$ we compute the actions that $P$ grants and $J$ does not. By Theorem~\ref{thm:duality} this set is the privilege amplification if a person holding $J$ uses the agent and the agent acts under $P$, and it is the access gap if the agent acts with the person's identity.
+
+The count is a lower bound at the level of actions. On the agent side we keep only actions granted without condition and remove every action that any deny statement mentions. On the person's side we count as held every action matched by any allow statement, including conditional and resource-specific ones. Resources are ignored. One element is assumed and not observed: that every holder of $J$ may invoke the agent, since the archive contains no tool-layer rule.
+
+\begin{table}[t]
+\caption{Actions granted by fifteen agent policies and not by a human job-function policy (lower bound): number of agent policies that add at least one action, and median share of an agent policy's actions that the person lacks. Thirteen agent policies grant at least one action without condition.}\label{tab:amp}
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Job function & Policies adding actions & Median share lacking \\
+\midrule
+Read-only access & 9 & 18\% \\
+View-only access & 11 & 72\% \\
+System administrator & 12 & 88\% \\
+Power user & 8 & 2\% \\
+Administrator & 0 & 0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:amp} summarises the result. Two built-in checks hold: no agent policy exceeds full administration, and the broadest agent policy, which allows everything except identity, account and organisation services, adds nothing to the power-user policy, which has the same form. That agent policy grants 12,129 of the 12,515 actions named in the archive; a person with read-only access lacks 5,839 of them, of which about 4,355 are not read operations according to the verb of the action name. The twelve smallest agent policies together add 83 actions for the same person, seven of them not read operations.
+
+These figures describe pairs of policies, not incidents, and say nothing against the policies themselves: an agent that operates infrastructure is meant to hold such rights. They show the weight of the one rule the archive does not contain. Whoever decides who may invoke an agent decides whether several thousand state-changing actions become reachable by staff with read-only access, and under the other binding whether the same staff meet as many refusals. Part of each difference comes from the two policies covering different services; this effect is smallest for read-only access, which makes that row the most informative.
+
+
+\section{Discussion and limitations}
+\pending{Open-ended tools, trust in tool declarations, conditions outside the attribute-set model, one provider, constructed tool-layer rules, no enforcement.}
+
+\section{Conclusion}
+\pending{To be written last.}
+
+\section*{Declarations}
+\pending{Data availability, author contributions (CRediT), competing interests, funding, declaration of generative AI use. Requires the author list.}
+
+\bibliographystyle{elsarticle-num}
+\bibliography{references}
+\end{document}

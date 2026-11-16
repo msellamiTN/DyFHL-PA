@@ -1,0 +1,60 @@
+\begin{thebibliography}{10}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\expandafter\ifx\csname href\endcsname\relax
+  \def\href#1#2{#2} \def\path#1{#1}\fi
+
+\bibitem{nist800207a}
+R.~Chandramouli, Z.~Butcher, A zero trust architecture model for access control
+  in cloud-native applications in multi-cloud environments, Tech. Rep. NIST SP
+  800-207A, National Institute of Standards and Technology (2023).
+\newblock \href {https://doi.org/10.6028/NIST.SP.800-207A}
+  {\path{doi:10.6028/NIST.SP.800-207A}}.
+
+\bibitem{hardy1988deputy}
+N.~Hardy, The confused deputy (or why capabilities might have been invented),
+  ACM SIGOPS Operating Systems Review 22~(4) (1988) 36--38.
+
+\bibitem{fisler2005margrave}
+K.~Fisler, S.~Krishnamurthi, L.~A. Meyerovich, M.~C. Tschantz, Verification and
+  change-impact analysis of access-control policies, in: Proceedings of the
+  27th International Conference on Software Engineering (ICSE), 2005, pp.
+  196--205.
+
+\bibitem{backes2018zelkova}
+J.~Backes, P.~Bolignano, B.~Cook, C.~Dodge, A.~Gacek, K.~Luckow, N.~Rungta,
+  O.~Tkachuk, C.~Varming, Semantic-based automated reasoning for {AWS} access
+  policies using {SMT}, in: Formal Methods in Computer-Aided Design (FMCAD),
+  2018.
+
+\bibitem{barnett2025authz}
+L.~A. Barnett, L.~D'Antoni, A.~Goel, R.~G. K{\i}c{\i}, N.~Rungta, M.~Southern,
+  C.~Sung, Modeling the {AWS} authorization engine, in: Formal Methods in
+  Computer-Aided Design (FMCAD), 2025.
+
+\bibitem{bertino2018quality}
+E.~Bertino, A.~Abu~Jabal, S.~Calo, D.~Verma, C.~Williams, The challenge of
+  access control policies quality, ACM Journal of Data and Information Quality
+  10~(2) (2018).
+
+\bibitem{john2026multicloud}
+J.~C. John, A.~Gupta, S.~Sural, Secure multi-cloud collaboration using data
+  leakage free attribute-based access control policies, Computers \& Security
+  161 (2026) 104736.
+\newblock \href {https://doi.org/10.1016/j.cose.2025.104736}
+  {\path{doi:10.1016/j.cose.2025.104736}}.
+
+\bibitem{park2004ucon}
+J.~Park, R.~Sandhu, The {UCON}\textsubscript{{ABC}} usage control model, ACM
+  Transactions on Information and System Security 7~(1) (2004) 128--174.
+
+\bibitem{oasis2013xacml}
+{OASIS}, {eXtensible Access Control Markup Language (XACML)} version 3.0, OASIS
+  Standard (2013).
+
+\bibitem{garey1979intractability}
+M.~R. Garey, D.~S. Johnson, Computers and Intractability: A Guide to the Theory
+  of {NP}-Completeness, W. H. Freeman, 1979.
+
+\end{thebibliography}
